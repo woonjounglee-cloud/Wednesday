@@ -669,6 +669,9 @@
                         <select id="db-selector" onchange="handleDBChange(this.value)">
                             <option value="">DB 선택</option>
                         </select>
+                        <select id="price-db-selector" onchange="loadPriceDB(this.value)" style="margin-left: 10px;">
+                            <option value="">종가 DB 선택</option>
+                        </select>
                         <button onclick="addRow('roi')">➕ 행 추가</button>
                         <button onclick="saveData()">💾 저장</button>
                         <button onclick="loadData(true)">🔄 새로고침</button>
@@ -797,6 +800,9 @@
                     <div class="button-group">
                         <select id="wj-isa-db-selector" onchange="handleDBChange(this.value)">
                             <option value="">DB 선택</option>
+                        </select>
+                        <select id="wj-isa-price-db-selector" onchange="loadPriceDB(this.value)" style="margin-left: 10px;">
+                            <option value="">종가 DB 선택</option>
                         </select>
                         <button onclick="addRow('roi')">➕ 행 추가</button>
                         <button onclick="saveData()">💾 저장</button>
@@ -992,11 +998,17 @@
             <div class="modal-body">
                 <p class="instructions">
                     <strong>사용 방법:</strong><br>
-                    1. Excel에서 ETF 종가 데이터를 복사합니다 (헤더 포함)<br>
-                    2. 아래 텍스트 영역에 붙여넣습니다<br>
-                    3. "종가 업데이트" 버튼을 클릭합니다<br><br>
+                    1. 날짜를 YYYYMMDD 형식으로 입력합니다 (예: 20251202)<br>
+                    2. Excel에서 ETF 종가 데이터를 복사합니다 (헤더 포함)<br>
+                    3. 아래 텍스트 영역에 붙여넣습니다<br>
+                    4. "종가 DB 저장" 버튼을 클릭합니다<br><br>
                     <strong>데이터 형식:</strong> 종목코드 | 종목명 | 종가
                 </p>
+
+                <div class="paste-section">
+                    <h3>📅 날짜 (YYYYMMDD)</h3>
+                    <input type="text" id="etf-price-date" placeholder="20251202" maxlength="8" pattern="[0-9]{8}" style="width: 100%; padding: 10px; font-size: 14px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 15px;">
+                </div>
 
                 <div class="paste-section">
                     <h3>ETF 종가 데이터</h3>
@@ -1005,7 +1017,7 @@
             </div>
             <div class="modal-footer">
                 <button onclick="closeETFPasteModal()" class="cancel-btn">취소</button>
-                <button onclick="updateETFPrices()" class="import-btn">📥 종가 업데이트</button>
+                <button onclick="updateETFPrices()" class="import-btn">💾 종가 DB 저장</button>
             </div>
         </div>
     </div>
@@ -1029,6 +1041,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadUploadedFiles();
     await loadInitialData();
     loadDBFiles();
+    refreshPriceDBSelector(); // 종가 DB 선택 드롭다운 초기화
     drawBalanceChart();
     drawPortfolioCharts();
 });
@@ -1950,28 +1963,28 @@ function closeETFPasteModal() {
     document.getElementById('etf-paste-modal').style.display = 'none';
 }
 
-// ETF 종가 업데이트
+// ETF 종가 업데이트 (날짜별 DB 저장)
 async function updateETFPrices() {
     try {
         console.log('💰 ETF 종가 업데이트 시작');
+
+        // 날짜 입력 받기
+        const dateInput = document.getElementById('etf-price-date').value.trim();
+
+        if (!dateInput) {
+            throw new Error('날짜를 입력해주세요 (YYYYMMDD 형식).');
+        }
+
+        // 날짜 유효성 검사
+        if (!/^\d{8}$/.test(dateInput)) {
+            throw new Error('날짜는 YYYYMMDD 형식으로 8자리 숫자여야 합니다 (예: 20251202).');
+        }
 
         const etfText = document.getElementById('etf-price-paste').value.trim();
 
         if (!etfText) {
             throw new Error('ETF 종가 데이터를 입력해주세요.');
         }
-
-        // 현재 ROI 테이블의 종목코드 목록
-        const stockCodes = data.roi
-            .map(row => row['종목코드'])
-            .filter(code => code && String(code).trim() !== '')
-            .map(code => String(code).trim());
-
-        if (stockCodes.length === 0) {
-            throw new Error('ROI 테이블에 종목코드가 없습니다. 먼저 초기 데이터를 입력해주세요.');
-        }
-
-        console.log('📋 ROI 종목코드 개수:', stockCodes.length);
 
         // TSV 데이터 파싱
         const etfRows = parseTSVData(etfText);
@@ -1983,7 +1996,6 @@ async function updateETFPrices() {
 
         // 종가 데이터를 맵으로 변환 (종목코드 -> {종목명, 종가})
         const priceMap = {};
-        let updateCount = 0;
 
         etfRows.forEach((row, index) => {
             if (row.length < 3) {
@@ -1995,24 +2007,46 @@ async function updateETFPrices() {
             const name = row[1] || '';
             const price = parseNumber(row[2]);
 
-            if (code && stockCodes.includes(code)) {
+            if (code) {
                 priceMap[code] = {
                     name: name,
                     price: price
                 };
                 console.log(`✅ ${code} (${name}): ${price}`);
-            } else if (code) {
-                console.log(`⚠️ ${code}는 ROI 테이블에 없는 종목입니다.`);
             }
         });
 
-        console.log('📊 매칭된 종목 수:', Object.keys(priceMap).length);
+        console.log('📊 종가 데이터 개수:', Object.keys(priceMap).length);
 
         if (Object.keys(priceMap).length === 0) {
-            throw new Error('ROI 테이블과 일치하는 종목코드가 없습니다. 종목코드를 확인해주세요.');
+            throw new Error('유효한 종가 데이터가 없습니다.');
         }
 
-        // ROI 테이블 업데이트
+        // 종가 DB 저장
+        const priceDBKey = `wednesday_price_db_${dateInput}`;
+        localStorage.setItem(priceDBKey, JSON.stringify({
+            date: dateInput,
+            prices: priceMap,
+            savedAt: new Date().toISOString()
+        }));
+
+        // 종가 DB 목록에 날짜 추가
+        let priceDBList = JSON.parse(localStorage.getItem('wednesday_price_db_list') || '[]');
+        if (!priceDBList.includes(dateInput)) {
+            priceDBList.push(dateInput);
+            priceDBList.sort().reverse(); // 최신순 정렬
+            localStorage.setItem('wednesday_price_db_list', JSON.stringify(priceDBList));
+        }
+
+        console.log('✅ 종가 DB 저장 완료:', dateInput);
+
+        // 현재 ROI 테이블에 즉시 적용
+        const stockCodes = data.roi
+            .map(row => row['종목코드'])
+            .filter(code => code && String(code).trim() !== '')
+            .map(code => String(code).trim());
+
+        let updateCount = 0;
         data.roi.forEach(row => {
             const code = String(row['종목코드'] || '').trim();
             if (code && priceMap[code]) {
@@ -2034,17 +2068,106 @@ async function updateETFPrices() {
         // 데이터 저장
         await saveData();
 
+        // 종가 DB 선택 드롭다운 새로고침
+        refreshPriceDBSelector();
+
         // 모달 닫기
         closeETFPasteModal();
 
         // 입력 필드 초기화
+        document.getElementById('etf-price-date').value = '';
         document.getElementById('etf-price-paste').value = '';
 
-        showNotification(`✅ ${updateCount}개 종목의 종가가 업데이트되었습니다!`, 'success');
+        showNotification(`✅ 종가 DB "${dateInput}"가 저장되었습니다! (${updateCount}개 종목 업데이트)`, 'success');
     } catch (error) {
         console.error('❌ ETF 종가 업데이트 실패:', error);
         console.error('에러 스택:', error.stack);
         showNotification('❌ ETF 종가 업데이트 실패: ' + error.message, 'error');
+    }
+}
+
+// 종가 DB 선택 드롭다운 새로고침
+function refreshPriceDBSelector() {
+    const priceDBList = JSON.parse(localStorage.getItem('wednesday_price_db_list') || '[]');
+
+    // 모든 탭의 종가 DB 선택 드롭다운 업데이트
+    const selectors = [
+        'price-db-selector',
+        'wj-isa-price-db-selector'
+    ];
+
+    selectors.forEach(selectorId => {
+        const selector = document.getElementById(selectorId);
+        if (selector) {
+            // 기존 옵션들 제거 (첫 번째 "종가 DB 선택" 옵션만 남기기)
+            while (selector.options.length > 1) {
+                selector.remove(1);
+            }
+
+            // 저장된 종가 DB 목록 추가
+            priceDBList.forEach(date => {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
+                selector.appendChild(option);
+            });
+
+            console.log(`✅ ${selectorId} 새로고침 완료: ${priceDBList.length}개 DB`);
+        }
+    });
+}
+
+// 종가 DB 로드 및 ROI 테이블 업데이트
+async function loadPriceDB(date) {
+    if (!date) {
+        return;
+    }
+
+    try {
+        console.log('📂 종가 DB 로드:', date);
+
+        const priceDBKey = `wednesday_price_db_${date}`;
+        const priceDBData = localStorage.getItem(priceDBKey);
+
+        if (!priceDBData) {
+            throw new Error(`종가 DB "${date}"를 찾을 수 없습니다.`);
+        }
+
+        const { prices } = JSON.parse(priceDBData);
+        console.log('📊 로드된 종가 데이터 개수:', Object.keys(prices).length);
+
+        // 현재 ROI 테이블 업데이트
+        let updateCount = 0;
+        data.roi.forEach(row => {
+            const code = String(row['종목코드'] || '').trim();
+            if (code && prices[code]) {
+                row['종가'] = prices[code].price;
+                if (prices[code].name) {
+                    row['종목명'] = prices[code].name;
+                }
+                updateCount++;
+            }
+        });
+
+        console.log('✅ 업데이트된 종목 수:', updateCount);
+
+        if (updateCount === 0) {
+            showNotification(`⚠️ "${date}" DB와 일치하는 종목이 없습니다.`, 'warning');
+            return;
+        }
+
+        // 테이블 렌더링
+        renderROITable();
+        updatePortfolioFromROI();
+        renderPortfolioTable();
+
+        // 데이터 저장
+        await saveData();
+
+        showNotification(`✅ "${date}" 종가 DB를 적용했습니다! (${updateCount}개 종목 업데이트)`, 'success');
+    } catch (error) {
+        console.error('❌ 종가 DB 로드 실패:', error);
+        showNotification('❌ 종가 DB 로드 실패: ' + error.message, 'error');
     }
 }
 
