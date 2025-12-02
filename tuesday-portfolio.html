@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tuesday - Portfolio Manager (Standalone)</title>
+
+    <!-- SheetJS for Excel file handling -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 100%;
+        }
+
+        .title-section {
+            flex: 1;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            display: flex;
+            gap: 10px;
+        }
+
+        .upload-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .upload-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            gap: 5px;
+        }
+
+        .tab-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .tab-group-label {
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #495057;
+            padding: 0 10px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            border: none;
+            background: white;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+            border-radius: 6px;
+            border: 2px solid transparent;
+        }
+
+        .tab-button:hover {
+            background: #f8f9fa;
+            border-color: #667eea;
+        }
+
+        .tab-button.active {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .section-header h2 {
+            color: #333;
+            font-size: 1.8rem;
+        }
+
+        .coming-soon {
+            text-align: center;
+            padding: 100px 20px;
+            color: #6c757d;
+        }
+
+        .coming-soon h2 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .coming-soon p {
+            font-size: 1.2rem;
+        }
+
+        .balance-container {
+            display: flex;
+            gap: 30px;
+        }
+
+        .balance-table-wrapper {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .chart-wrapper {
+            flex: 0 0 400px;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .portfolio-charts-container {
+            display: flex;
+            gap: 30px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+
+        .chart-box {
+            flex: 1;
+            max-width: 400px;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .chart-box h3 {
+            text-align: center;
+            color: #333;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+
+        .chart-box canvas {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        select {
+            padding: 10px 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            color: #333;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        select:hover {
+            border-color: #5568d3;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            table-layout: fixed;
+        }
+
+        #roi-table th:nth-child(1), #wj-isa-roi-table th:nth-child(1) { width: 8%; }
+        #roi-table th:nth-child(2), #wj-isa-roi-table th:nth-child(2) { width: 28%; }
+        #roi-table th:nth-child(3), #wj-isa-roi-table th:nth-child(3) { width: 13%; }
+        #roi-table th:nth-child(4), #wj-isa-roi-table th:nth-child(4) { width: 8%; }
+        #roi-table th:nth-child(5), #wj-isa-roi-table th:nth-child(5) { width: 10%; }
+        #roi-table th:nth-child(6), #wj-isa-roi-table th:nth-child(6) { width: 13%; }
+        #roi-table th:nth-child(7), #wj-isa-roi-table th:nth-child(7) { width: 10%; }
+        #roi-table th:nth-child(8), #wj-isa-roi-table th:nth-child(8) { width: 10%; }
+
+        #roi-table input, #wj-isa-roi-table input {
+            font-size: 0.9rem !important;
+        }
+
+        #roi-table td:not(:has(input)), #wj-isa-roi-table td:not(:has(input)) {
+            font-size: 0.9rem;
+        }
+
+        #balance-table input, #wj-isa-balance-table input {
+            font-size: 0.9rem;
+        }
+
+        #balance-table td:not(:has(input)), #wj-isa-balance-table td:not(:has(input)) {
+            font-size: 0.9rem;
+        }
+
+        #balance-table td:nth-child(1) input, #wj-isa-balance-table td:nth-child(1) input,
+        #balance-table td:nth-child(3) input, #wj-isa-balance-table td:nth-child(3) input {
+            text-align: center;
+        }
+
+        #portfolio-table th:nth-child(1), #wj-isa-portfolio-table th:nth-child(1) { width: 8%; }
+        #portfolio-table th:nth-child(2), #wj-isa-portfolio-table th:nth-child(2) { width: 30%; }
+        #portfolio-table th:nth-child(3), #wj-isa-portfolio-table th:nth-child(3) { width: 10%; }
+        #portfolio-table th:nth-child(4), #wj-isa-portfolio-table th:nth-child(4) { width: 11%; }
+        #portfolio-table th:nth-child(5), #wj-isa-portfolio-table th:nth-child(5) { width: 10%; }
+        #portfolio-table th:nth-child(6), #wj-isa-portfolio-table th:nth-child(6) { width: 10%; }
+        #portfolio-table th:nth-child(7), #wj-isa-portfolio-table th:nth-child(7) { width: 13%; }
+        #portfolio-table th:nth-child(8), #wj-isa-portfolio-table th:nth-child(8) { width: 8%; }
+
+        #portfolio-table input, #wj-isa-portfolio-table input {
+            font-size: 0.9rem;
+        }
+
+        #portfolio-table td:not(:has(input)), #wj-isa-portfolio-table td:not(:has(input)) {
+            font-size: 0.9rem;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        th {
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+            line-height: 1.2;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+            text-align: center;
+        }
+
+        #roi-table td:nth-child(2), #wj-isa-roi-table td:nth-child(2),
+        #portfolio-table td:nth-child(2), #wj-isa-portfolio-table td:nth-child(2) {
+            text-align: left;
+        }
+
+        #roi-table td:nth-child(1), #wj-isa-roi-table td:nth-child(1),
+        #portfolio-table td:nth-child(1), #wj-isa-portfolio-table td:nth-child(1) {
+            text-align: center;
+        }
+
+        #roi-table td:nth-child(1) input, #wj-isa-roi-table td:nth-child(1) input,
+        #portfolio-table td:nth-child(1) input, #wj-isa-portfolio-table td:nth-child(1) input {
+            text-align: center;
+        }
+
+        #roi-table td:nth-child(3) input, #wj-isa-roi-table td:nth-child(3) input,
+        #roi-table td:nth-child(4) input, #wj-isa-roi-table td:nth-child(4) input,
+        #roi-table td:nth-child(5) input, #wj-isa-roi-table td:nth-child(5) input {
+            text-align: center;
+        }
+
+        #portfolio-table td:nth-child(3) input, #wj-isa-portfolio-table td:nth-child(3) input,
+        #portfolio-table td:nth-child(4) input, #wj-isa-portfolio-table td:nth-child(4) input,
+        #portfolio-table td:nth-child(5) input, #wj-isa-portfolio-table td:nth-child(5) input {
+            text-align: center;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .delete-btn {
+            background: #dc3545;
+            padding: 3px 6px;
+            font-size: 0.576rem;
+        }
+
+        .delete-btn:hover {
+            background: #c82333;
+        }
+
+        #roi-table tfoot td, #wj-isa-roi-table tfoot td {
+            font-size: 0.88rem;
+            font-weight: bold;
+        }
+
+        #roi-table tfoot td:nth-child(3), #wj-isa-roi-table tfoot td:nth-child(3) {
+            text-align: center;
+        }
+
+        #roi-table td:nth-child(7), #wj-isa-roi-table td:nth-child(7) {
+            font-size: 0.88rem;
+        }
+
+        #balance-table th:nth-child(1), #wj-isa-balance-table th:nth-child(1) { width: 18%; }
+        #balance-table th:nth-child(2), #wj-isa-balance-table th:nth-child(2) { width: 18%; }
+        #balance-table th:nth-child(3), #wj-isa-balance-table th:nth-child(3) { width: 16%; }
+        #balance-table th:nth-child(4), #wj-isa-balance-table th:nth-child(4) { width: 18%; }
+        #balance-table th:nth-child(5), #wj-isa-balance-table th:nth-child(5) { width: 16%; }
+        #balance-table th:nth-child(6), #wj-isa-balance-table th:nth-child(6) { width: 14%; }
+
+        #portfolio-table th:nth-child(5), #wj-isa-portfolio-table th:nth-child(5),
+        #portfolio-table th:nth-child(6), #wj-isa-portfolio-table th:nth-child(6) {
+            white-space: nowrap;
+        }
+
+        #portfolio-table tfoot td:nth-child(5), #wj-isa-portfolio-table tfoot td:nth-child(5) {
+            text-align: center;
+        }
+
+        #portfolio-table td:nth-child(7), #wj-isa-portfolio-table td:nth-child(7),
+        #portfolio-table tfoot td:nth-child(7), #wj-isa-portfolio-table tfoot td:nth-child(7) {
+            font-size: 1rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .summary {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+
+        .summary td {
+            border-top: 2px solid #667eea;
+        }
+
+        .negative {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .positive {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+        }
+
+        @media (max-width: 768px) {
+            .section-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .button-group {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="title-section">
+                    <h1>📊 Tuesday</h1>
+                    <p>Portfolio Management System (Standalone)</p>
+                </div>
+                <div class="upload-section">
+                    <label for="etf-upload" class="upload-btn">
+                        📄 ETF
+                        <input type="file" id="etf-upload" accept=".xlsx,.csv" hidden onchange="handleFileUpload('etf', this.files[0])">
+                    </label>
+                    <label for="stock-upload" class="upload-btn">
+                        📈 주식
+                        <input type="file" id="stock-upload" accept=".xlsx,.csv" hidden onchange="handleFileUpload('stock', this.files[0])">
+                    </label>
+                </div>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <div class="tab-group">
+                <span class="tab-group-label">Home</span>
+                <button class="tab-button active" data-tab="home-irp" data-db="Home_IRP">IRP</button>
+            </div>
+            <div class="tab-group">
+                <span class="tab-group-label">WJ</span>
+                <button class="tab-button" data-tab="wj-isa" data-db="WJ_ISA">ISA</button>
+                <button class="tab-button" data-tab="wj-stock" data-db="WJ_Stock">주식</button>
+            </div>
+            <div class="tab-group">
+                <span class="tab-group-label">MG</span>
+                <button class="tab-button" data-tab="mg-irp" data-db="MG_IRP">IRP</button>
+                <button class="tab-button" data-tab="mg-pension" data-db="MG_Pension">개인연금</button>
+            </div>
+        </nav>
+
+        <!-- Home - IRP Tab -->
+        <div id="home-irp-tab" class="tab-content active">
+
+            <!-- ROI Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>📈 ROI (Return on Investment)</h2>
+                    <div class="button-group">
+                        <select id="db-selector" onchange="handleDBChange(this.value)">
+                            <option value="">DB 선택</option>
+                        </select>
+                        <button onclick="addRow('roi')">➕ 행 추가</button>
+                        <button onclick="saveData()">💾 저장</button>
+                        <button onclick="loadData(true)">🔄 새로고침</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="roi-table">
+                        <thead>
+                            <tr>
+                                <th>종목코드</th>
+                                <th>종목명</th>
+                                <th>초기투자금</th>
+                                <th>수량</th>
+                                <th>종가</th>
+                                <th>평가금</th>
+                                <th>수익률</th>
+                                <th>삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                        <tfoot>
+                            <tr class="summary">
+                                <td colspan="2">합계</td>
+                                <td id="total-initial">0</td>
+                                <td></td>
+                                <td></td>
+                                <td id="total-eval">0</td>
+                                <td id="total-roi">0%</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Balance Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>💰 Balance (잔고 현황)</h2>
+                    <div class="button-group">
+                        <button onclick="addRow('balance')">➕ 행 추가</button>
+                    </div>
+                </div>
+
+                <div class="balance-container">
+                    <div class="table-wrapper balance-table-wrapper">
+                        <table id="balance-table">
+                            <thead>
+                                <tr>
+                                    <th>날짜</th>
+                                    <th>투자원금</th>
+                                    <th>추가납입</th>
+                                    <th>잔고</th>
+                                    <th>수익률</th>
+                                    <th>삭제</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="balance-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portfolio Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>🎯 Portfolio (포트폴리오)</h2>
+                    <div class="button-group">
+                        <button onclick="performRebalancing()">🔄 Rebalancing</button>
+                        <button onclick="addRow('portfolio')">➕ 행 추가</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="portfolio-table">
+                        <thead>
+                            <tr>
+                                <th>종목코드</th>
+                                <th>종목명</th>
+                                <th>자산군</th>
+                                <th>구분</th>
+                                <th>세팅비중(%)</th>
+                                <th>현재비중(%)</th>
+                                <th>녹색매수</th>
+                                <th>삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                        <tfoot>
+                            <tr class="summary">
+                                <td colspan="4">합계</td>
+                                <td id="total-setting">0%</td>
+                                <td id="total-current">0%</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- Portfolio Charts Section -->
+                <div class="portfolio-charts-container">
+                    <div class="chart-box">
+                        <h3>자산군별 세팅비중</h3>
+                        <canvas id="setting-pie-chart"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <h3>자산군별 현재비중</h3>
+                        <canvas id="current-pie-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WJ - ISA Tab -->
+        <div id="wj-isa-tab" class="tab-content">
+
+            <!-- ROI Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>📈 ROI (Return on Investment)</h2>
+                    <div class="button-group">
+                        <select id="wj-isa-db-selector" onchange="handleDBChange(this.value)">
+                            <option value="">DB 선택</option>
+                        </select>
+                        <button onclick="addRow('roi')">➕ 행 추가</button>
+                        <button onclick="saveData()">💾 저장</button>
+                        <button onclick="loadData(true)">🔄 새로고침</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="wj-isa-roi-table">
+                        <thead>
+                            <tr>
+                                <th>종목코드</th>
+                                <th>종목명</th>
+                                <th>초기투자금</th>
+                                <th>수량</th>
+                                <th>종가</th>
+                                <th>평가금</th>
+                                <th>수익률</th>
+                                <th>삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                        <tfoot>
+                            <tr class="summary">
+                                <td colspan="2">합계</td>
+                                <td id="wj-isa-total-initial">0</td>
+                                <td></td>
+                                <td></td>
+                                <td id="wj-isa-total-eval">0</td>
+                                <td id="wj-isa-total-roi">0%</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Balance Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>💰 Balance (잔고 현황)</h2>
+                    <div class="button-group">
+                        <button onclick="addRow('balance')">➕ 행 추가</button>
+                    </div>
+                </div>
+
+                <div class="balance-container">
+                    <div class="table-wrapper balance-table-wrapper">
+                        <table id="wj-isa-balance-table">
+                            <thead>
+                                <tr>
+                                    <th>날짜</th>
+                                    <th>투자원금</th>
+                                    <th>추가납입</th>
+                                    <th>잔고</th>
+                                    <th>수익률</th>
+                                    <th>삭제</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="wj-isa-balance-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portfolio Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>🎯 Portfolio (포트폴리오)</h2>
+                    <div class="button-group">
+                        <button onclick="performRebalancing()">🔄 Rebalancing</button>
+                        <button onclick="addRow('portfolio')">➕ 행 추가</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="wj-isa-portfolio-table">
+                        <thead>
+                            <tr>
+                                <th>종목코드</th>
+                                <th>종목명</th>
+                                <th>자산군</th>
+                                <th>구분</th>
+                                <th>세팅비중(%)</th>
+                                <th>현재비중(%)</th>
+                                <th>녹색매수</th>
+                                <th>삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                        <tfoot>
+                            <tr class="summary">
+                                <td colspan="4">합계</td>
+                                <td id="wj-isa-total-setting">0%</td>
+                                <td id="wj-isa-total-current">0%</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- Portfolio Charts Section -->
+                <div class="portfolio-charts-container">
+                    <div class="chart-box">
+                        <h3>자산군별 세팅비중</h3>
+                        <canvas id="wj-isa-setting-pie-chart"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <h3>자산군별 현재비중</h3>
+                        <canvas id="wj-isa-current-pie-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WJ - 주식 Tab -->
+        <div id="wj-stock-tab" class="tab-content">
+            <div class="coming-soon">
+                <h2>🚧 WJ - 주식</h2>
+                <p>준비 중입니다...</p>
+            </div>
+        </div>
+
+        <!-- MG - IRP Tab -->
+        <div id="mg-irp-tab" class="tab-content">
+            <div class="coming-soon">
+                <h2>🚧 MG - IRP</h2>
+                <p>준비 중입니다...</p>
+            </div>
+        </div>
+
+        <!-- MG - 개인연금 Tab -->
+        <div id="mg-pension-tab" class="tab-content">
+            <div class="coming-soon">
+                <h2>🚧 MG - 개인연금</h2>
+                <p>준비 중입니다...</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>Tuesday Portfolio Manager v2.0 | Standalone Edition (No Server Required)</p>
+        </footer>
+    </div>
+
+    <script>
+// Tuesday Portfolio Manager - Standalone Version (LocalStorage-based)
+
+let data = {
+    roi: [],
+    balance: [],
+    portfolio: []
+};
+
+let currentDB = 'Home_IRP';
+let uploadedFiles = {}; // {filename: {date: YYYYMMDD, data: [[row1], [row2], ...]}}
+let selectedDBFile = null;
+
+// 페이지 로드 시 실행
+document.addEventListener('DOMContentLoaded', async () => {
+    initTabs();
+    loadUploadedFiles();
+    await loadData();
+    loadDBFiles();
+    drawBalanceChart();
+    drawPortfolioCharts();
+});
+
+// LocalStorage에서 업로드된 파일 정보 로드
+function loadUploadedFiles() {
+    const stored = localStorage.getItem('uploadedFiles');
+    if (stored) {
+        uploadedFiles = JSON.parse(stored);
+    }
+}
+
+// LocalStorage에 업로드된 파일 정보 저장
+function saveUploadedFiles() {
+    localStorage.setItem('uploadedFiles', JSON.stringify(uploadedFiles));
+}
+
+// 탭 초기화
+function initTabs() {
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = button.dataset.tab;
+            const dbName = button.dataset.db;
+            switchTab(tabName, dbName);
+        });
+    });
+}
+
+// 탭 전환
+function switchTab(tabName, dbName) {
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+
+    if (dbName) {
+        currentDB = dbName;
+        loadData(false);
+        loadDBFiles();
+        drawBalanceChart();
+        drawPortfolioCharts();
+    }
+}
+
+// 현재 탭에 맞는 element ID 접두사 가져오기
+function getTablePrefix() {
+    if (currentDB === 'WJ_ISA') return 'wj-isa-';
+    return '';
+}
+
+// DB 파일 목록 로드
+async function loadDBFiles() {
+    const prefix = getTablePrefix();
+    const selector = document.getElementById(`${prefix}db-selector`);
+    if (!selector) return;
+
+    selector.innerHTML = '<option value="">DB 선택</option>';
+
+    const files = Object.keys(uploadedFiles).map(filename => ({
+        filename: filename,
+        date: uploadedFiles[filename].date
+    }));
+
+    files.sort((a, b) => a.date.localeCompare(b.date));
+
+    files.forEach(file => {
+        const option = document.createElement('option');
+        option.value = file.filename;
+        option.textContent = file.date;
+        selector.appendChild(option);
+    });
+}
+
+// DB 선택 변경 처리
+async function handleDBChange(filename) {
+    if (!filename) {
+        selectedDBFile = null;
+        return;
+    }
+
+    selectedDBFile = filename;
+
+    const stockCodes = data.roi
+        .map(row => row['종목코드'])
+        .filter(code => code && String(code).trim() !== '')
+        .map(code => String(code).trim());
+
+    if (stockCodes.length === 0) {
+        showNotification('⚠️ 종목코드가 없습니다.', 'warning');
+        return;
+    }
+
+    try {
+        const fileData = uploadedFiles[filename];
+        if (!fileData || !fileData.data) {
+            showNotification('❌ 파일 데이터를 찾을 수 없습니다.', 'error');
+            return;
+        }
+
+        const prices = {};
+        fileData.data.forEach(row => {
+            const code = String(row[0] || '').trim();
+            if (code && stockCodes.includes(code)) {
+                prices[code] = {
+                    name: row[1] || '',
+                    price: parseFloat(row[2]) || 0
+                };
+            }
+        });
+
+        data.roi.forEach(row => {
+            const code = String(row['종목코드'] || '').trim();
+            if (code && prices[code]) {
+                row['종가'] = prices[code].price;
+                if (prices[code].name) {
+                    row['종목명'] = prices[code].name;
+                }
+            }
+        });
+
+        renderROITable();
+        updatePortfolioFromROI();
+        renderPortfolioTable();
+
+        await saveData();
+
+        showNotification('✅ 종가가 업데이트되었습니다!', 'success');
+    } catch (error) {
+        showNotification('❌ 종가 조회 실패: ' + error.message, 'error');
+    }
+}
+
+// 파일 업로드 처리
+async function handleFileUpload(type, file) {
+    if (!file) return;
+
+    try {
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                // 파일명에서 날짜 추출
+                const match = file.name.match(/(\d{8})/);
+                const dateStr = match ? match[1] : new Date().toISOString().slice(0, 10).replace(/-/g, '');
+
+                const savedFilename = file.name.startsWith('data_')
+                    ? file.name
+                    : `data_ETF_${dateStr}.xlsx`;
+
+                // 업로드된 파일 저장
+                uploadedFiles[savedFilename] = {
+                    date: dateStr,
+                    data: jsonData.slice(1) // 헤더 제외
+                };
+                saveUploadedFiles();
+
+                // DB 파일 목록 새로고침
+                await loadDBFiles();
+
+                // 자동 선택
+                const prefix = getTablePrefix();
+                const selector = document.getElementById(`${prefix}db-selector`);
+                if (selector) {
+                    selector.value = savedFilename;
+                    await handleDBChange(savedFilename);
+                }
+
+                showNotification('✅ 파일이 업로드되고 저장되었습니다!', 'success');
+            } catch (error) {
+                showNotification('❌ 파일 처리 실패: ' + error.message, 'error');
+            }
+        };
+
+        reader.readAsArrayBuffer(file);
+    } catch (error) {
+        showNotification('❌ 업로드 실패: ' + error.message, 'error');
+    }
+}
+
+// 포트폴리오 테이블 업데이트 (ROI 기반)
+function updatePortfolioFromROI() {
+    if (!data.roi || !data.portfolio) return;
+
+    let totalEval = 0;
+    data.roi.forEach(row => {
+        const quantity = parseFloat(row['수량'] || 0);
+        const price = parseFloat(row['종가'] || 0);
+        totalEval += quantity * price;
+    });
+
+    data.portfolio.forEach(row => {
+        const code = row['종목코드'];
+        if (!code) return;
+
+        let evalAmt = 0;
+        const roiRow = data.roi.find(r => r['종목코드'] === code);
+        if (roiRow) {
+            const quantity = parseFloat(roiRow['수량'] || 0);
+            const price = parseFloat(roiRow['종가'] || 0);
+            evalAmt = quantity * price;
+        }
+
+        const currentRatio = totalEval > 0 ? (evalAmt / totalEval * 100) : 0;
+        row['현재비중'] = currentRatio;
+
+        const settingRatio = parseFloat(row['세팅비중'] || 0);
+        const rebalancing = (settingRatio - currentRatio) / 100 * totalEval;
+        row['녹색매수'] = rebalancing;
+    });
+}
+
+// 데이터 로드 (LocalStorage)
+async function loadData(showMessage = false) {
+    try {
+        const stored = localStorage.getItem(`tuesday_${currentDB}`);
+
+        if (stored) {
+            data = JSON.parse(stored);
+        } else {
+            data = {
+                roi: [],
+                balance: [],
+                portfolio: []
+            };
+        }
+
+        renderROITable();
+        renderBalanceTable();
+        updatePortfolioFromROI();
+        renderPortfolioTable();
+        drawBalanceChart();
+
+        if (showMessage) {
+            showNotification('✅ 데이터를 불러왔습니다.', 'success');
+        }
+    } catch (error) {
+        console.error('데이터 로드 실패:', error);
+        showNotification('❌ 데이터 로드 실패: ' + error.message, 'error');
+    }
+}
+
+// ROI 테이블 렌더링
+function renderROITable() {
+    const prefix = getTablePrefix();
+    const tbody = document.querySelector(`#${prefix}roi-table tbody`);
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!data.roi || data.roi.length === 0) {
+        data.roi = [createEmptyROIRow()];
+    }
+
+    let totalInitial = 0;
+    let totalEval = 0;
+
+    data.roi.forEach((row, index) => {
+        const quantity = parseFloat(row['수량'] || 0);
+        const price = parseFloat(row['종가'] || 0);
+        const evaluation = quantity * price;
+        row['평가금'] = evaluation;
+
+        const initial = parseFloat(row['초기투자금'] || 0);
+        const roi = initial > 0 ? ((evaluation - initial) / initial * 100) : 0;
+        row['수익률'] = roi;
+
+        totalInitial += initial;
+        totalEval += evaluation;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" value="${row['종목코드'] || ''}" onchange="updateROI(${index}, '종목코드', this.value)"></td>
+            <td><input type="text" value="${row['종목명'] || ''}" onchange="updateROI(${index}, '종목명', this.value)"></td>
+            <td><input type="text" value="${formatNumber(row['초기투자금'] || 0)}" onchange="updateROI(${index}, '초기투자금', this.value.replace(/,/g, ''))"></td>
+            <td><input type="number" value="${row['수량'] || 0}" onchange="updateROI(${index}, '수량', this.value)"></td>
+            <td><input type="text" value="${formatNumber(row['종가'] || 0)}" onchange="updateROI(${index}, '종가', this.value.replace(/,/g, ''))"></td>
+            <td>${formatCurrency(evaluation)}</td>
+            <td class="${roi < 0 ? 'negative' : 'positive'}">${roi.toFixed(1)}%</td>
+            <td><button class="delete-btn" onclick="deleteRow('roi', ${index})">❌</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    const totalROI = totalInitial > 0 ? ((totalEval - totalInitial) / totalInitial * 100) : 0;
+
+    const totalInitialEl = document.getElementById(`${prefix}total-initial`);
+    const totalEvalEl = document.getElementById(`${prefix}total-eval`);
+    const totalRoiEl = document.getElementById(`${prefix}total-roi`);
+
+    if (totalInitialEl) totalInitialEl.textContent = formatCurrency(totalInitial);
+    if (totalEvalEl) totalEvalEl.textContent = formatCurrency(totalEval);
+    if (totalRoiEl) {
+        totalRoiEl.textContent = totalROI.toFixed(1) + '%';
+        totalRoiEl.className = totalROI < 0 ? 'negative' : 'positive';
+    }
+}
+
+// Balance 테이블 렌더링
+function renderBalanceTable() {
+    const prefix = getTablePrefix();
+    const tbody = document.querySelector(`#${prefix}balance-table tbody`);
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!data.balance || data.balance.length === 0) {
+        data.balance = [createEmptyBalanceRow()];
+    }
+
+    data.balance.forEach((row, index) => {
+        const principal = parseFloat(row['투자원금'] || 0);
+        const balance = parseFloat(row['잔고'] || 0);
+        const returnRate = principal > 0 ? ((balance - principal) / principal * 100) : 0;
+        const returnRateClass = returnRate < 0 ? 'negative' : 'positive';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" value="${row['날짜'] || ''}" onchange="updateBalance(${index}, '날짜', this.value)"></td>
+            <td>${principal.toLocaleString()}</td>
+            <td><input type="number" value="${row['추가납입'] || 0}" onchange="updateBalance(${index}, '추가납입', this.value)"></td>
+            <td>${balance.toLocaleString()}</td>
+            <td class="${returnRateClass}">${returnRate.toFixed(1)}%</td>
+            <td><button class="delete-btn" onclick="deleteRow('balance', ${index})">❌</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    drawBalanceChart();
+}
+
+// Portfolio 테이블 렌더링
+function renderPortfolioTable() {
+    const prefix = getTablePrefix();
+    const tbody = document.querySelector(`#${prefix}portfolio-table tbody`);
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!data.portfolio || data.portfolio.length === 0) {
+        data.portfolio = [createEmptyPortfolioRow()];
+    }
+
+    let totalSetting = 0;
+    let totalCurrent = 0;
+
+    data.portfolio.forEach((row, index) => {
+        const settingRatio = parseFloat(row['세팅비중'] || 0);
+        const currentRatio = parseFloat(row['현재비중'] || 0);
+        const rebalancing = parseFloat(row['녹색매수'] || 0);
+
+        totalSetting += settingRatio;
+        totalCurrent += currentRatio;
+
+        const rebalancingClass = rebalancing > 0 ? 'positive' : '';
+        const rebalancingText = rebalancing >= 0
+            ? formatCurrency(rebalancing)
+            : `(${formatCurrency(Math.abs(rebalancing))})`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" value="${row['종목코드'] || ''}" onchange="updatePortfolio(${index}, '종목코드', this.value)"></td>
+            <td><input type="text" value="${row['종목명'] || ''}" onchange="updatePortfolio(${index}, '종목명', this.value)"></td>
+            <td><input type="text" value="${row['자산군'] || ''}" onchange="updatePortfolio(${index}, '자산군', this.value)"></td>
+            <td><input type="text" value="${row['구분'] || ''}" onchange="updatePortfolio(${index}, '구분', this.value)"></td>
+            <td><input type="text" value="${settingRatio.toFixed(1)}%" onchange="updatePortfolio(${index}, '세팅비중', this.value.replace('%', ''))"></td>
+            <td>${currentRatio.toFixed(1)}%</td>
+            <td class="${rebalancingClass}">${rebalancingText}</td>
+            <td><button class="delete-btn" onclick="deleteRow('portfolio', ${index})">❌</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    const totalSettingEl = document.getElementById(`${prefix}total-setting`);
+    const totalCurrentEl = document.getElementById(`${prefix}total-current`);
+
+    if (totalSettingEl) {
+        totalSettingEl.textContent = totalSetting.toFixed(1) + '%';
+        totalSettingEl.className = Math.abs(totalSetting - 100) > 0.1 ? 'negative' : '';
+    }
+    if (totalCurrentEl) {
+        totalCurrentEl.textContent = totalCurrent.toFixed(1) + '%';
+    }
+
+    drawPortfolioCharts();
+}
+
+// ROI 데이터 업데이트
+function updateROI(index, field, value) {
+    data.roi[index][field] = field === '종목코드' || field === '종목명' ? value : parseFloat(value) || 0;
+    renderROITable();
+    updatePortfolioFromROI();
+    renderPortfolioTable();
+}
+
+// Balance 데이터 업데이트
+function updateBalance(index, field, value) {
+    data.balance[index][field] = value;
+    renderBalanceTable();
+}
+
+// Portfolio 데이터 업데이트
+function updatePortfolio(index, field, value) {
+    data.portfolio[index][field] = field === '종목코드' || field === '종목명' || field === '자산군' || field === '구분'
+        ? value
+        : parseFloat(value) || 0;
+
+    if (field === '세팅비중') {
+        updatePortfolioFromROI();
+    }
+
+    renderPortfolioTable();
+    saveData();
+}
+
+// 행 추가
+function addRow(table) {
+    let newRow;
+    if (table === 'roi') {
+        newRow = createEmptyROIRow();
+        data.roi.push(newRow);
+        renderROITable();
+    } else if (table === 'balance') {
+        newRow = createEmptyBalanceRow();
+
+        if (selectedDBFile && uploadedFiles[selectedDBFile]) {
+            newRow['날짜'] = uploadedFiles[selectedDBFile].date;
+        }
+
+        let totalInitial = 0;
+        let totalEval = 0;
+
+        data.roi.forEach(row => {
+            const quantity = parseFloat(row['수량'] || 0);
+            const price = parseFloat(row['종가'] || 0);
+            const evaluation = quantity * price;
+            const initial = parseFloat(row['초기투자금'] || 0);
+
+            totalEval += evaluation;
+            totalInitial += initial;
+        });
+
+        const roi = totalInitial > 0 ? ((totalEval - totalInitial) / totalInitial * 100) : 0;
+
+        newRow['투자원금'] = totalInitial;
+        newRow['잔고'] = totalEval;
+        newRow['수익률'] = roi.toFixed(1) + '%';
+
+        data.balance.push(newRow);
+        renderBalanceTable();
+        saveData();
+    } else if (table === 'portfolio') {
+        newRow = createEmptyPortfolioRow();
+        data.portfolio.push(newRow);
+        renderPortfolioTable();
+    }
+}
+
+// 행 삭제
+function deleteRow(table, index) {
+    if (confirm('정말 삭제하시겠습니까?')) {
+        data[table].splice(index, 1);
+
+        if (table === 'roi') renderROITable();
+        else if (table === 'balance') renderBalanceTable();
+        else if (table === 'portfolio') renderPortfolioTable();
+    }
+}
+
+// 데이터 저장 (LocalStorage)
+async function saveData() {
+    try {
+        localStorage.setItem(`tuesday_${currentDB}`, JSON.stringify(data));
+        showNotification('✅ 저장되었습니다!', 'success');
+    } catch (error) {
+        showNotification('❌ 저장 실패: ' + error.message, 'error');
+    }
+}
+
+// 리밸런싱 수행
+async function performRebalancing() {
+    try {
+        updatePortfolioFromROI();
+        renderPortfolioTable();
+        showNotification('✅ 리밸런싱 완료!', 'success');
+    } catch (error) {
+        showNotification('❌ 리밸런싱 실패: ' + error.message, 'error');
+    }
+}
+
+// Balance 차트 그리기
+function drawBalanceChart() {
+    const prefix = getTablePrefix();
+    const canvas = document.getElementById(`${prefix}balance-chart`);
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = 380;
+    const height = 350;
+    canvas.width = width;
+    canvas.height = height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (!data.balance || data.balance.length === 0) {
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#999';
+        ctx.textAlign = 'center';
+        ctx.fillText('데이터가 없습니다', width / 2, height / 2);
+        return;
+    }
+
+    const balances = data.balance.map(row => parseFloat(row['잔고'] || 0));
+    const labels = data.balance.map(row => row['날짜'] || '');
+
+    const minBalance = 16000000;
+    const maxData = Math.max(...balances, minBalance);
+    const maxBalance = Math.ceil((maxData - minBalance) / 500000) * 500000 + minBalance;
+    const range = maxBalance - minBalance;
+
+    const paddingTop = 40;
+    const paddingRight = 40;
+    const paddingBottom = 60;
+    const paddingLeft = 40;
+    const chartWidth = width - paddingLeft - paddingRight;
+    const chartHeight = height - paddingTop - paddingBottom;
+
+    ctx.fillStyle = '#f8f9fa';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = '#dee2e6';
+    ctx.lineWidth = 1;
+    const gridStep = 500000;
+    const gridCount = Math.ceil(range / gridStep);
+    for (let i = 0; i <= gridCount; i++) {
+        const value = minBalance + (gridStep * i);
+        const y = paddingTop + chartHeight - ((value - minBalance) / range * chartHeight);
+        ctx.beginPath();
+        ctx.moveTo(paddingLeft, y);
+        ctx.lineTo(width - paddingRight, y);
+        ctx.stroke();
+    }
+
+    if (balances.length > 0) {
+        ctx.strokeStyle = '#667eea';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+
+        balances.forEach((balance, index) => {
+            const x = paddingLeft + (chartWidth / Math.max(balances.length - 1, 1)) * index;
+            const y = paddingTop + chartHeight - ((balance - minBalance) / range * chartHeight);
+
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+
+        ctx.stroke();
+
+        ctx.fillStyle = '#667eea';
+        balances.forEach((balance, index) => {
+            const x = paddingLeft + (chartWidth / Math.max(balances.length - 1, 1)) * index;
+            const y = paddingTop + chartHeight - ((balance - minBalance) / range * chartHeight);
+
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    ctx.fillStyle = '#333';
+    ctx.textAlign = 'center';
+
+    ctx.font = '11px Arial';
+    labels.forEach((label, index) => {
+        const x = paddingLeft + (chartWidth / Math.max(labels.length - 1, 1)) * index;
+        const y = height - paddingBottom + 25;
+        ctx.fillText(label, x, y);
+    });
+
+    ctx.textAlign = 'right';
+    ctx.font = '11px Arial';
+    for (let i = 0; i <= gridCount; i++) {
+        const value = minBalance + (gridStep * i);
+        const y = paddingTop + chartHeight - ((value - minBalance) / range * chartHeight) + 4;
+        ctx.fillText(formatCurrency(value), paddingLeft - 10, y);
+    }
+}
+
+// 빈 행 생성
+function createEmptyROIRow() {
+    return {
+        '종목코드': '',
+        '종목명': '',
+        '초기투자금': 0,
+        '수량': 0,
+        '종가': 0,
+        '평가금': 0,
+        '수익률': 0
+    };
+}
+
+function createEmptyBalanceRow() {
+    return {
+        '날짜': '',
+        '투자원금': 0,
+        '추가납입': 0,
+        '잔고': 0,
+        '수익률': '0%'
+    };
+}
+
+function createEmptyPortfolioRow() {
+    return {
+        '종목코드': '',
+        '종목명': '',
+        '자산군': '',
+        '구분': '',
+        '세팅비중': 0,
+        '현재비중': 0,
+        '녹색매수': 0
+    };
+}
+
+// 숫자 포맷팅
+function formatCurrency(num) {
+    return new Intl.NumberFormat('ko-KR', {
+        style: 'currency',
+        currency: 'KRW',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(num).replace('₩', '₩');
+}
+
+function formatNumber(num) {
+    return new Intl.NumberFormat('ko-KR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+    }).format(num);
+}
+
+// 자산군별 데이터 집계
+function aggregateByAssetClass() {
+    const assetGroups = {};
+
+    data.portfolio.forEach(row => {
+        const assetClass = row['자산군'] || '미분류';
+        const settingRatio = parseFloat(row['세팅비중'] || 0);
+        const currentRatio = parseFloat(row['현재비중'] || 0);
+
+        if (!assetGroups[assetClass]) {
+            assetGroups[assetClass] = {
+                setting: 0,
+                current: 0
+            };
+        }
+
+        assetGroups[assetClass].setting += settingRatio;
+        assetGroups[assetClass].current += currentRatio;
+    });
+
+    return assetGroups;
+}
+
+// 포트폴리오 원형 차트 그리기
+function drawPortfolioCharts() {
+    const prefix = getTablePrefix();
+    const settingCanvas = document.getElementById(`${prefix}setting-pie-chart`);
+    const currentCanvas = document.getElementById(`${prefix}current-pie-chart`);
+
+    if (!settingCanvas || !currentCanvas) return;
+
+    const assetGroups = aggregateByAssetClass();
+    const assetClasses = Object.keys(assetGroups);
+
+    if (assetClasses.length === 0) return;
+
+    const colors = [
+        '#667eea', '#764ba2', '#f093fb', '#4facfe',
+        '#43e97b', '#fa709a', '#fee140', '#30cfd0',
+        '#a8edea', '#fed6e3', '#c471f5', '#12c2e9'
+    ];
+
+    drawPieChart(
+        settingCanvas,
+        assetClasses.map(name => ({ name, value: assetGroups[name].setting })),
+        colors,
+        '세팅비중'
+    );
+
+    drawPieChart(
+        currentCanvas,
+        assetClasses.map(name => ({ name, value: assetGroups[name].current })),
+        colors,
+        '현재비중'
+    );
+}
+
+// 원형 차트 그리기 함수
+function drawPieChart(canvas, dataArray, colors, title) {
+    const ctx = canvas.getContext('2d');
+    const width = 350;
+    const height = 350;
+    canvas.width = width;
+    canvas.height = height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const filteredData = dataArray.filter(item => item.value > 0);
+
+    if (filteredData.length === 0) {
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#999';
+        ctx.textAlign = 'center';
+        ctx.fillText('데이터가 없습니다', width / 2, height / 2);
+        return;
+    }
+
+    const total = filteredData.reduce((sum, item) => sum + item.value, 0);
+
+    const centerX = width / 2;
+    const centerY = height / 2 - 20;
+    const radius = Math.min(width, height) / 2 - 60;
+
+    let currentAngle = -Math.PI / 2;
+
+    filteredData.forEach((item, index) => {
+        const sliceAngle = (item.value / total) * 2 * Math.PI;
+        const endAngle = currentAngle + sliceAngle;
+
+        ctx.beginPath();
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, currentAngle, endAngle);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        const middleAngle = currentAngle + sliceAngle / 2;
+        const labelRadius = radius * 0.7;
+        const labelX = centerX + labelRadius * Math.cos(middleAngle);
+        const labelY = centerY + labelRadius * Math.sin(middleAngle);
+
+        ctx.font = 'bold 14px Arial';
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(item.value.toFixed(1) + '%', labelX, labelY);
+        ctx.shadowBlur = 0;
+
+        currentAngle = endAngle;
+    });
+
+    const legendY = height - 20;
+    const legendItemWidth = width / filteredData.length;
+
+    filteredData.forEach((item, index) => {
+        const x = index * legendItemWidth + 10;
+        const y = legendY;
+
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.fillRect(x, y - 8, 12, 12);
+
+        ctx.font = '11px Arial';
+        ctx.fillStyle = '#333';
+        ctx.textAlign = 'left';
+        ctx.fillText(item.name, x + 16, y);
+    });
+}
+
+// 알림 표시
+function showNotification(message, type) {
+    alert(message);
+}
+    </script>
+</body>
+</html>
