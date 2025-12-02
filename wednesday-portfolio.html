@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tuesday - Portfolio Manager (Standalone)</title>
+    <title>Wednesday - Portfolio Manager</title>
 
     <!-- SheetJS for Excel file handling -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -479,8 +479,8 @@
         <header>
             <div class="header-content">
                 <div class="title-section">
-                    <h1>📊 Tuesday</h1>
-                    <p>Portfolio Management System (Standalone)</p>
+                    <h1>📊 Wednesday</h1>
+                    <p>Portfolio Management System</p>
                 </div>
                 <div class="upload-section">
                     <label for="etf-upload" class="upload-btn">
@@ -795,12 +795,12 @@
         </div>
 
         <footer>
-            <p>Tuesday Portfolio Manager v2.0 | Standalone Edition (No Server Required)</p>
+            <p>Wednesday Portfolio Manager v2.0</p>
         </footer>
     </div>
 
     <script>
-// Tuesday Portfolio Manager - Standalone Version (LocalStorage-based)
+// Wednesday Portfolio Manager - Standalone Version (LocalStorage-based)
 
 let data = {
     roi: [],
@@ -816,7 +816,7 @@ let selectedDBFile = null;
 document.addEventListener('DOMContentLoaded', async () => {
     initTabs();
     loadUploadedFiles();
-    await loadData();
+    await loadInitialData();
     loadDBFiles();
     drawBalanceChart();
     drawPortfolioCharts();
@@ -835,6 +835,118 @@ function saveUploadedFiles() {
     localStorage.setItem('uploadedFiles', JSON.stringify(uploadedFiles));
 }
 
+// Excel 파일에서 초기 데이터 로드
+async function loadInitialData() {
+    const stored = localStorage.getItem(`tuesday_${currentDB}`);
+
+    // LocalStorage에 데이터가 있으면 그것을 사용
+    if (stored) {
+        await loadData();
+        return;
+    }
+
+    // LocalStorage에 데이터가 없으면 Excel 파일에서 로드
+    try {
+        const excelFile = getExcelFileForDB(currentDB);
+        await loadFromExcel(excelFile);
+    } catch (error) {
+        console.log('Excel 파일 로드 실패, 빈 데이터로 시작:', error);
+        await loadData();
+    }
+}
+
+// DB에 맞는 Excel 파일 경로 반환
+function getExcelFileForDB(dbName) {
+    const fileMap = {
+        'Home_IRP': '/db/Home_IRP.xlsx',
+        'WJ_ISA': '/db/WJ_ISA.xlsx',
+        'WJ_Stock': '/db/WJ_Stock.xlsx',
+        'MG_IRP': '/db/MG_IRP.xlsx',
+        'MG_Pension': '/db/MG_Pension.xlsx'
+    };
+    return fileMap[dbName] || null;
+}
+
+// Excel 파일에서 데이터 로드
+async function loadFromExcel(filePath) {
+    if (!filePath) {
+        await loadData();
+        return;
+    }
+
+    try {
+        const response = await fetch(filePath);
+        if (!response.ok) {
+            throw new Error(`파일을 찾을 수 없습니다: ${filePath}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+
+        // 숫자 파싱 헬퍼 함수 (콤마, 공백, 통화 기호 제거)
+        const parseNumber = (value) => {
+            if (typeof value === 'number') return value;
+            if (!value) return 0;
+            const str = String(value).replace(/[₩,\s]/g, '').replace(/%$/, '');
+            return parseFloat(str) || 0;
+        };
+
+        // ROI 시트 로드
+        if (workbook.SheetNames.includes('ROI')) {
+            const roiSheet = workbook.Sheets['ROI'];
+            const roiData = XLSX.utils.sheet_to_json(roiSheet);
+            data.roi = roiData.map(row => ({
+                '종목코드': String(row['종목코드'] || ''),
+                '종목명': row['종목명'] || '',
+                '초기투자금': parseNumber(row['초기투자금']),
+                '수량': parseNumber(row['수량']),
+                '종가': parseNumber(row['종가']),
+                '평가금': 0,
+                '수익률': 0
+            }));
+        }
+
+        // Balance 시트 로드
+        if (workbook.SheetNames.includes('Balance')) {
+            const balanceSheet = workbook.Sheets['Balance'];
+            const balanceData = XLSX.utils.sheet_to_json(balanceSheet);
+            data.balance = balanceData.map(row => ({
+                '날짜': String(row['날짜'] || ''),
+                '투자원금': parseNumber(row['투자원금']),
+                '추가납입': parseNumber(row['추가납입']),
+                '잔고': parseNumber(row['잔고']),
+                '수익률': row['수익률'] || '0%'
+            }));
+        }
+
+        // Portfolio 시트 로드
+        if (workbook.SheetNames.includes('Portfolio')) {
+            const portfolioSheet = workbook.Sheets['Portfolio'];
+            const portfolioData = XLSX.utils.sheet_to_json(portfolioSheet);
+            data.portfolio = portfolioData.map(row => ({
+                '종목코드': String(row['종목코드'] || ''),
+                '종목명': row['종목명'] || '',
+                '자산군': row['자산군'] || '',
+                '구분': row['구분'] || '',
+                '세팅비중': parseNumber(row['세팅비중']),
+                '현재비중': 0,
+                '녹색매수': 0
+            }));
+        }
+
+        renderROITable();
+        renderBalanceTable();
+        updatePortfolioFromROI();
+        renderPortfolioTable();
+        drawBalanceChart();
+
+        console.log(`✅ ${filePath}에서 데이터를 불러왔습니다.`);
+    } catch (error) {
+        console.error('Excel 파일 로드 실패:', error);
+        throw error;
+    }
+}
+
 // 탭 초기화
 function initTabs() {
     document.querySelectorAll('.tab-button').forEach(button => {
@@ -847,7 +959,7 @@ function initTabs() {
 }
 
 // 탭 전환
-function switchTab(tabName, dbName) {
+async function switchTab(tabName, dbName) {
     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
@@ -856,7 +968,21 @@ function switchTab(tabName, dbName) {
 
     if (dbName) {
         currentDB = dbName;
-        loadData(false);
+
+        // LocalStorage에 데이터가 있으면 그것을 사용, 없으면 Excel 파일에서 로드
+        const stored = localStorage.getItem(`wednesday_${currentDB}`);
+        if (stored) {
+            await loadData(false);
+        } else {
+            try {
+                const excelFile = getExcelFileForDB(currentDB);
+                await loadFromExcel(excelFile);
+            } catch (error) {
+                console.log('Excel 파일 로드 실패, 빈 데이터로 시작:', error);
+                await loadData(false);
+            }
+        }
+
         loadDBFiles();
         drawBalanceChart();
         drawPortfolioCharts();
@@ -919,12 +1045,28 @@ async function handleDBChange(filename) {
         }
 
         const prices = {};
-        fileData.data.forEach(row => {
+        fileData.data.forEach((row, index) => {
+            // row가 배열인지 확인
+            if (!Array.isArray(row)) {
+                console.warn(`행 ${index}가 배열이 아닙니다:`, row);
+                return;
+            }
+
+            // 최소 3개의 컬럼이 있는지 확인 (종목코드, 종목명, 종가)
+            if (row.length < 3) {
+                console.warn(`행 ${index}의 컬럼이 부족합니다:`, row);
+                return;
+            }
+
             const code = String(row[0] || '').trim();
             if (code && stockCodes.includes(code)) {
+                // 종가 값 파싱 (콤마 제거)
+                const priceStr = String(row[2] || '').replace(/,/g, '');
+                const price = parseFloat(priceStr) || 0;
+
                 prices[code] = {
                     name: row[1] || '',
-                    price: parseFloat(row[2]) || 0
+                    price: price
                 };
             }
         });
@@ -962,8 +1104,17 @@ async function handleFileUpload(type, file) {
             try {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
+
+                if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                    throw new Error('Excel 파일에 시트가 없습니다.');
+                }
+
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                if (!jsonData || jsonData.length === 0) {
+                    throw new Error('Excel 파일에 데이터가 없습니다.');
+                }
 
                 // 파일명에서 날짜 추출
                 const match = file.name.match(/(\d{8})/);
@@ -973,10 +1124,17 @@ async function handleFileUpload(type, file) {
                     ? file.name
                     : `data_ETF_${dateStr}.xlsx`;
 
+                // 헤더 제외하고 데이터만 저장 (최소 2행 이상 있어야 함)
+                const dataRows = jsonData.length > 1 ? jsonData.slice(1) : [];
+
+                if (dataRows.length === 0) {
+                    throw new Error('Excel 파일에 데이터 행이 없습니다. (헤더만 있음)');
+                }
+
                 // 업로드된 파일 저장
                 uploadedFiles[savedFilename] = {
                     date: dateStr,
-                    data: jsonData.slice(1) // 헤더 제외
+                    data: dataRows
                 };
                 saveUploadedFiles();
 
@@ -993,12 +1151,14 @@ async function handleFileUpload(type, file) {
 
                 showNotification('✅ 파일이 업로드되고 저장되었습니다!', 'success');
             } catch (error) {
+                console.error('파일 처리 에러:', error);
                 showNotification('❌ 파일 처리 실패: ' + error.message, 'error');
             }
         };
 
         reader.readAsArrayBuffer(file);
     } catch (error) {
+        console.error('업로드 에러:', error);
         showNotification('❌ 업로드 실패: ' + error.message, 'error');
     }
 }
@@ -1038,7 +1198,7 @@ function updatePortfolioFromROI() {
 // 데이터 로드 (LocalStorage)
 async function loadData(showMessage = false) {
     try {
-        const stored = localStorage.getItem(`tuesday_${currentDB}`);
+        const stored = localStorage.getItem(`wednesday_${currentDB}`);
 
         if (stored) {
             data = JSON.parse(stored);
@@ -1295,7 +1455,7 @@ function deleteRow(table, index) {
 // 데이터 저장 (LocalStorage)
 async function saveData() {
     try {
-        localStorage.setItem(`tuesday_${currentDB}`, JSON.stringify(data));
+        localStorage.setItem(`wednesday_${currentDB}`, JSON.stringify(data));
         showNotification('✅ 저장되었습니다!', 'success');
     } catch (error) {
         showNotification('❌ 저장 실패: ' + error.message, 'error');
