@@ -484,16 +484,16 @@
                 </div>
                 <div class="upload-section">
                     <label for="initial-upload" class="upload-btn">
-                        📁 초기 데이터
+                        📁 Excel 파일
                         <input type="file" id="initial-upload" accept=".xlsx" hidden onchange="handleInitialDataUpload(this.files[0])">
                     </label>
-                    <label for="etf-upload" class="upload-btn">
-                        📄 ETF 종가
-                        <input type="file" id="etf-upload" accept=".xlsx,.csv" hidden onchange="handleFileUpload('etf', this.files[0])">
+                    <label for="csv-upload" class="upload-btn">
+                        📄 CSV 파일들
+                        <input type="file" id="csv-upload" accept=".csv" multiple hidden onchange="handleCSVUpload(this.files)">
                     </label>
-                    <label for="stock-upload" class="upload-btn">
-                        📈 주식 종가
-                        <input type="file" id="stock-upload" accept=".xlsx,.csv" hidden onchange="handleFileUpload('stock', this.files[0])">
+                    <label for="etf-upload" class="upload-btn">
+                        💰 ETF 종가
+                        <input type="file" id="etf-upload" accept=".xlsx,.csv" hidden onchange="handleFileUpload('etf', this.files[0])">
                     </label>
                 </div>
             </div>
@@ -1145,6 +1145,156 @@ async function handleInitialDataUpload(file) {
         console.error('❌ 에러 스택:', error.stack);
         showNotification('❌ 업로드 실패: ' + error.message, 'error');
     }
+}
+
+// CSV 파일 업로드 처리 (DRM 파일 대응)
+async function handleCSVUpload(files) {
+    if (!files || files.length === 0) {
+        showNotification('❌ 파일을 선택해주세요.', 'error');
+        return;
+    }
+
+    try {
+        console.log(`📄 ${files.length}개의 CSV 파일 업로드 시작`);
+
+        // 파일 이름으로 분류
+        const fileMap = {};
+        for (let file of files) {
+            console.log(`📄 파일: ${file.name}`);
+            const fileName = file.name.toLowerCase();
+            if (fileName.includes('roi')) {
+                fileMap.roi = file;
+            } else if (fileName.includes('balance')) {
+                fileMap.balance = file;
+            } else if (fileName.includes('portfolio')) {
+                fileMap.portfolio = file;
+            }
+        }
+
+        console.log('📋 파일 분류:', Object.keys(fileMap));
+
+        // 각 파일 파싱
+        const parsePromises = [];
+
+        if (fileMap.roi) {
+            parsePromises.push(parseCSVFile(fileMap.roi, 'ROI'));
+        }
+        if (fileMap.balance) {
+            parsePromises.push(parseCSVFile(fileMap.balance, 'Balance'));
+        }
+        if (fileMap.portfolio) {
+            parsePromises.push(parseCSVFile(fileMap.portfolio, 'Portfolio'));
+        }
+
+        if (parsePromises.length === 0) {
+            throw new Error('ROI, Balance, Portfolio 이름이 포함된 CSV 파일을 찾을 수 없습니다.');
+        }
+
+        const results = await Promise.all(parsePromises);
+        console.log('✅ 모든 CSV 파일 파싱 완료:', results.length);
+
+        // 데이터 병합
+        results.forEach(result => {
+            if (result.type === 'ROI') {
+                data.roi = result.data;
+            } else if (result.type === 'Balance') {
+                data.balance = result.data;
+            } else if (result.type === 'Portfolio') {
+                data.portfolio = result.data;
+            }
+        });
+
+        console.log('📊 최종 데이터:', {
+            roi: data.roi.length,
+            balance: data.balance.length,
+            portfolio: data.portfolio.length
+        });
+
+        // 테이블 렌더링
+        renderROITable();
+        renderBalanceTable();
+        updatePortfolioFromROI();
+        renderPortfolioTable();
+        drawBalanceChart();
+
+        // 데이터 저장
+        await saveData();
+
+        showNotification(`✅ ${parsePromises.length}개의 CSV 파일에서 데이터를 불러왔습니다!`, 'success');
+    } catch (error) {
+        console.error('❌ CSV 업로드 에러:', error);
+        console.error('❌ 에러 스택:', error.stack);
+        showNotification('❌ CSV 업로드 실패: ' + error.message, 'error');
+    }
+}
+
+// CSV 파일 파싱
+function parseCSVFile(file, type) {
+    return new Promise((resolve, reject) => {
+        console.log(`🔄 ${type} CSV 파싱 시작: ${file.name}`);
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            try {
+                const text = e.target.result;
+                console.log(`📖 ${type} 파일 읽기 완료, 길이: ${text.length}`);
+
+                // SheetJS를 사용해 CSV 파싱
+                const workbook = XLSX.read(text, { type: 'string' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                console.log(`✅ ${type} 데이터 개수: ${jsonData.length}`);
+                if (jsonData.length > 0) {
+                    console.log(`${type} 첫 행:`, jsonData[0]);
+                }
+
+                let parsedData = [];
+
+                if (type === 'ROI') {
+                    parsedData = jsonData.map(row => ({
+                        '종목코드': String(row['종목코드'] || row['코드'] || ''),
+                        '종목명': row['종목명'] || row['이름'] || '',
+                        '초기투자금': parseNumber(row['초기투자금']),
+                        '수량': parseNumber(row['수량']),
+                        '종가': parseNumber(row['종가'] || row['가격']),
+                        '평가금': 0,
+                        '수익률': 0
+                    }));
+                } else if (type === 'Balance') {
+                    parsedData = jsonData.map(row => ({
+                        '날짜': String(row['날짜'] || ''),
+                        '투자원금': parseNumber(row['투자원금'] || row['원금']),
+                        '추가납입': parseNumber(row['추가납입']),
+                        '잔고': parseNumber(row['잔고']),
+                        '수익률': row['수익률'] || '0%'
+                    }));
+                } else if (type === 'Portfolio') {
+                    parsedData = jsonData.map(row => ({
+                        '종목코드': String(row['종목코드'] || row['코드'] || ''),
+                        '종목명': row['종목명'] || row['이름'] || '',
+                        '자산군': row['자산군'] || '',
+                        '구분': row['구분'] || '',
+                        '세팅비중': parseNumber(row['세팅비중'] || row['목표비중']),
+                        '현재비중': 0,
+                        '녹색매수': 0
+                    }));
+                }
+
+                resolve({ type, data: parsedData });
+            } catch (error) {
+                console.error(`❌ ${type} CSV 파싱 에러:`, error);
+                reject(new Error(`${type} CSV 파싱 실패: ${error.message}`));
+            }
+        };
+
+        reader.onerror = (error) => {
+            console.error(`❌ ${type} 파일 읽기 에러:`, error);
+            reject(new Error(`${type} 파일 읽기 실패`));
+        };
+
+        reader.readAsText(file, 'UTF-8');
+    });
 }
 
 // 탭 초기화
