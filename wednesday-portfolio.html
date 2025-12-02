@@ -666,10 +666,7 @@
                 <div class="section-header">
                     <h2>📈 ROI (Return on Investment)</h2>
                     <div class="button-group">
-                        <select id="db-selector" onchange="handleDBChange(this.value)">
-                            <option value="">DB 선택</option>
-                        </select>
-                        <select id="price-db-selector" onchange="loadPriceDB(this.value)" style="margin-left: 10px;">
+                        <select id="price-db-selector" onchange="loadPriceDB(this.value)">
                             <option value="">종가 DB 선택</option>
                         </select>
                         <button onclick="addRow('roi')">➕ 행 추가</button>
@@ -798,10 +795,7 @@
                 <div class="section-header">
                     <h2>📈 ROI (Return on Investment)</h2>
                     <div class="button-group">
-                        <select id="wj-isa-db-selector" onchange="handleDBChange(this.value)">
-                            <option value="">DB 선택</option>
-                        </select>
-                        <select id="wj-isa-price-db-selector" onchange="loadPriceDB(this.value)" style="margin-left: 10px;">
+                        <select id="wj-isa-price-db-selector" onchange="loadPriceDB(this.value)">
                             <option value="">종가 DB 선택</option>
                         </select>
                         <button onclick="addRow('roi')">➕ 행 추가</button>
@@ -1034,6 +1028,7 @@ let data = {
 let currentDB = 'Home_IRP';
 let uploadedFiles = {}; // {filename: {date: YYYYMMDD, data: [[row1], [row2], ...]}}
 let selectedDBFile = null;
+let selectedPriceDBDate = null; // 선택된 종가 DB 날짜 (YYYYMMDD)
 
 // 페이지 로드 시 실행
 document.addEventListener('DOMContentLoaded', async () => {
@@ -2108,7 +2103,7 @@ function refreshPriceDBSelector() {
             priceDBList.forEach(date => {
                 const option = document.createElement('option');
                 option.value = date;
-                option.textContent = `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
+                option.textContent = date; // YYYYMMDD 형식으로 표시
                 selector.appendChild(option);
             });
 
@@ -2120,6 +2115,7 @@ function refreshPriceDBSelector() {
 // 종가 DB 로드 및 ROI 테이블 업데이트
 async function loadPriceDB(date) {
     if (!date) {
+        selectedPriceDBDate = null; // 선택 해제
         return;
     }
 
@@ -2155,6 +2151,10 @@ async function loadPriceDB(date) {
             showNotification(`⚠️ "${date}" DB와 일치하는 종목이 없습니다.`, 'warning');
             return;
         }
+
+        // 선택된 종가 DB 날짜 저장
+        selectedPriceDBDate = date;
+        console.log('📅 선택된 종가 DB 날짜:', selectedPriceDBDate);
 
         // 테이블 렌더링
         renderROITable();
@@ -2384,7 +2384,10 @@ function addRow(table) {
     } else if (table === 'balance') {
         newRow = createEmptyBalanceRow();
 
-        if (selectedDBFile && uploadedFiles[selectedDBFile]) {
+        // 선택된 종가 DB 날짜를 우선 사용
+        if (selectedPriceDBDate) {
+            newRow['날짜'] = selectedPriceDBDate;
+        } else if (selectedDBFile && uploadedFiles[selectedDBFile]) {
             newRow['날짜'] = uploadedFiles[selectedDBFile].date;
         }
 
