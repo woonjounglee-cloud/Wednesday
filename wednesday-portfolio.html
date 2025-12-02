@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tuesday - Portfolio Manager</title>
+    <title>Wednesday - Portfolio Manager</title>
 
     <!-- SheetJS for Excel file handling -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -479,7 +479,7 @@
         <header>
             <div class="header-content">
                 <div class="title-section">
-                    <h1>📊 Tuesday</h1>
+                    <h1>📊 Wednesday</h1>
                     <p>Portfolio Management System</p>
                 </div>
                 <div class="upload-section">
@@ -795,12 +795,12 @@
         </div>
 
         <footer>
-            <p>Tuesday Portfolio Manager v2.0</p>
+            <p>Wednesday Portfolio Manager v2.0</p>
         </footer>
     </div>
 
     <script>
-// Tuesday Portfolio Manager - Standalone Version (LocalStorage-based)
+// Wednesday Portfolio Manager - Standalone Version (LocalStorage-based)
 
 let data = {
     roi: [],
@@ -962,7 +962,7 @@ async function switchTab(tabName, dbName) {
         currentDB = dbName;
 
         // LocalStorage에 데이터가 있으면 그것을 사용, 없으면 Excel 파일에서 로드
-        const stored = localStorage.getItem(`tuesday_${currentDB}`);
+        const stored = localStorage.getItem(`wednesday_${currentDB}`);
         if (stored) {
             await loadData(false);
         } else {
@@ -1156,7 +1156,7 @@ function updatePortfolioFromROI() {
 // 데이터 로드 (LocalStorage)
 async function loadData(showMessage = false) {
     try {
-        const stored = localStorage.getItem(`tuesday_${currentDB}`);
+        const stored = localStorage.getItem(`wednesday_${currentDB}`);
 
         if (stored) {
             data = JSON.parse(stored);
@@ -1413,7 +1413,7 @@ function deleteRow(table, index) {
 // 데이터 저장 (LocalStorage)
 async function saveData() {
     try {
-        localStorage.setItem(`tuesday_${currentDB}`, JSON.stringify(data));
+        localStorage.setItem(`wednesday_${currentDB}`, JSON.stringify(data));
         showNotification('✅ 저장되었습니다!', 'success');
     } catch (error) {
         showNotification('❌ 저장 실패: ' + error.message, 'error');
