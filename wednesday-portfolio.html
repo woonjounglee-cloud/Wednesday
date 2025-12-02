@@ -483,12 +483,16 @@
                     <p>Portfolio Management System</p>
                 </div>
                 <div class="upload-section">
+                    <label for="initial-upload" class="upload-btn">
+                        📁 초기 데이터
+                        <input type="file" id="initial-upload" accept=".xlsx" hidden onchange="handleInitialDataUpload(this.files[0])">
+                    </label>
                     <label for="etf-upload" class="upload-btn">
-                        📄 ETF
+                        📄 ETF 종가
                         <input type="file" id="etf-upload" accept=".xlsx,.csv" hidden onchange="handleFileUpload('etf', this.files[0])">
                     </label>
                     <label for="stock-upload" class="upload-btn">
-                        📈 주식
+                        📈 주식 종가
                         <input type="file" id="stock-upload" accept=".xlsx,.csv" hidden onchange="handleFileUpload('stock', this.files[0])">
                     </label>
                 </div>
@@ -867,7 +871,84 @@ function getExcelFileForDB(dbName) {
     return fileMap[dbName] || null;
 }
 
-// Excel 파일에서 데이터 로드
+// 숫자 파싱 헬퍼 함수 (콤마, 공백, 통화 기호 제거)
+function parseNumber(value) {
+    if (typeof value === 'number') return value;
+    if (!value) return 0;
+    const str = String(value).replace(/[₩,\s]/g, '').replace(/%$/, '');
+    return parseFloat(str) || 0;
+}
+
+// Excel workbook에서 데이터 파싱
+function parseExcelWorkbook(workbook) {
+    console.log('📊 Excel 시트 목록:', workbook.SheetNames);
+
+    // ROI 시트 로드
+    if (workbook.SheetNames.includes('ROI')) {
+        const roiSheet = workbook.Sheets['ROI'];
+        const roiData = XLSX.utils.sheet_to_json(roiSheet);
+        console.log('✅ ROI 데이터 개수:', roiData.length);
+        if (roiData.length > 0) {
+            console.log('ROI 첫 행:', roiData[0]);
+        }
+        data.roi = roiData.map(row => ({
+            '종목코드': String(row['종목코드'] || ''),
+            '종목명': row['종목명'] || '',
+            '초기투자금': parseNumber(row['초기투자금']),
+            '수량': parseNumber(row['수량']),
+            '종가': parseNumber(row['종가']),
+            '평가금': 0,
+            '수익률': 0
+        }));
+    } else {
+        console.warn('⚠️ ROI 시트가 없습니다.');
+        data.roi = [];
+    }
+
+    // Balance 시트 로드
+    if (workbook.SheetNames.includes('Balance')) {
+        const balanceSheet = workbook.Sheets['Balance'];
+        const balanceData = XLSX.utils.sheet_to_json(balanceSheet);
+        console.log('✅ Balance 데이터 개수:', balanceData.length);
+        data.balance = balanceData.map(row => ({
+            '날짜': String(row['날짜'] || ''),
+            '투자원금': parseNumber(row['투자원금']),
+            '추가납입': parseNumber(row['추가납입']),
+            '잔고': parseNumber(row['잔고']),
+            '수익률': row['수익률'] || '0%'
+        }));
+    } else {
+        console.warn('⚠️ Balance 시트가 없습니다.');
+        data.balance = [];
+    }
+
+    // Portfolio 시트 로드
+    if (workbook.SheetNames.includes('Portfolio')) {
+        const portfolioSheet = workbook.Sheets['Portfolio'];
+        const portfolioData = XLSX.utils.sheet_to_json(portfolioSheet);
+        console.log('✅ Portfolio 데이터 개수:', portfolioData.length);
+        data.portfolio = portfolioData.map(row => ({
+            '종목코드': String(row['종목코드'] || ''),
+            '종목명': row['종목명'] || '',
+            '자산군': row['자산군'] || '',
+            '구분': row['구분'] || '',
+            '세팅비중': parseNumber(row['세팅비중']),
+            '현재비중': 0,
+            '녹색매수': 0
+        }));
+    } else {
+        console.warn('⚠️ Portfolio 시트가 없습니다.');
+        data.portfolio = [];
+    }
+
+    renderROITable();
+    renderBalanceTable();
+    updatePortfolioFromROI();
+    renderPortfolioTable();
+    drawBalanceChart();
+}
+
+// Excel 파일에서 데이터 로드 (fetch 사용 - 웹 서버 필요)
 async function loadFromExcel(filePath) {
     if (!filePath) {
         await loadData();
@@ -875,6 +956,7 @@ async function loadFromExcel(filePath) {
     }
 
     try {
+        console.log('📁 파일 로드 시도:', filePath);
         const response = await fetch(filePath);
         if (!response.ok) {
             throw new Error(`파일을 찾을 수 없습니다: ${filePath}`);
@@ -883,67 +965,49 @@ async function loadFromExcel(filePath) {
         const arrayBuffer = await response.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
-        // 숫자 파싱 헬퍼 함수 (콤마, 공백, 통화 기호 제거)
-        const parseNumber = (value) => {
-            if (typeof value === 'number') return value;
-            if (!value) return 0;
-            const str = String(value).replace(/[₩,\s]/g, '').replace(/%$/, '');
-            return parseFloat(str) || 0;
-        };
-
-        // ROI 시트 로드
-        if (workbook.SheetNames.includes('ROI')) {
-            const roiSheet = workbook.Sheets['ROI'];
-            const roiData = XLSX.utils.sheet_to_json(roiSheet);
-            data.roi = roiData.map(row => ({
-                '종목코드': String(row['종목코드'] || ''),
-                '종목명': row['종목명'] || '',
-                '초기투자금': parseNumber(row['초기투자금']),
-                '수량': parseNumber(row['수량']),
-                '종가': parseNumber(row['종가']),
-                '평가금': 0,
-                '수익률': 0
-            }));
-        }
-
-        // Balance 시트 로드
-        if (workbook.SheetNames.includes('Balance')) {
-            const balanceSheet = workbook.Sheets['Balance'];
-            const balanceData = XLSX.utils.sheet_to_json(balanceSheet);
-            data.balance = balanceData.map(row => ({
-                '날짜': String(row['날짜'] || ''),
-                '투자원금': parseNumber(row['투자원금']),
-                '추가납입': parseNumber(row['추가납입']),
-                '잔고': parseNumber(row['잔고']),
-                '수익률': row['수익률'] || '0%'
-            }));
-        }
-
-        // Portfolio 시트 로드
-        if (workbook.SheetNames.includes('Portfolio')) {
-            const portfolioSheet = workbook.Sheets['Portfolio'];
-            const portfolioData = XLSX.utils.sheet_to_json(portfolioSheet);
-            data.portfolio = portfolioData.map(row => ({
-                '종목코드': String(row['종목코드'] || ''),
-                '종목명': row['종목명'] || '',
-                '자산군': row['자산군'] || '',
-                '구분': row['구분'] || '',
-                '세팅비중': parseNumber(row['세팅비중']),
-                '현재비중': 0,
-                '녹색매수': 0
-            }));
-        }
-
-        renderROITable();
-        renderBalanceTable();
-        updatePortfolioFromROI();
-        renderPortfolioTable();
-        drawBalanceChart();
+        parseExcelWorkbook(workbook);
 
         console.log(`✅ ${filePath}에서 데이터를 불러왔습니다.`);
     } catch (error) {
-        console.error('Excel 파일 로드 실패:', error);
+        console.error('❌ Excel 파일 로드 실패:', error);
         throw error;
+    }
+}
+
+// 초기 데이터 파일 업로드 처리 (사용자가 직접 파일 선택)
+async function handleInitialDataUpload(file) {
+    if (!file) return;
+
+    try {
+        console.log('📁 초기 데이터 업로드:', file.name);
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+            try {
+                const arrayData = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(arrayData, { type: 'array' });
+
+                parseExcelWorkbook(workbook);
+
+                // 데이터 저장
+                await saveData();
+
+                showNotification(`✅ ${file.name}에서 데이터를 불러왔습니다!`, 'success');
+            } catch (error) {
+                console.error('❌ 파일 처리 에러:', error);
+                showNotification('❌ 파일 처리 실패: ' + error.message, 'error');
+            }
+        };
+
+        reader.onerror = (error) => {
+            console.error('❌ 파일 읽기 에러:', error);
+            showNotification('❌ 파일 읽기 실패', 'error');
+        };
+
+        reader.readAsArrayBuffer(file);
+    } catch (error) {
+        console.error('❌ 업로드 에러:', error);
+        showNotification('❌ 업로드 실패: ' + error.message, 'error');
     }
 }
 
@@ -1093,17 +1157,20 @@ async function handleDBChange(filename) {
     }
 }
 
-// 파일 업로드 처리
+// ETF/주식 종가 파일 업로드 처리
 async function handleFileUpload(type, file) {
     if (!file) return;
 
     try {
+        console.log(`📄 ${type} 파일 업로드:`, file.name);
         const reader = new FileReader();
 
         reader.onload = async (e) => {
             try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
+                const arrayData = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(arrayData, { type: 'array' });
+
+                console.log('📊 시트 목록:', workbook.SheetNames);
 
                 if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
                     throw new Error('Excel 파일에 시트가 없습니다.');
@@ -1111,6 +1178,14 @@ async function handleFileUpload(type, file) {
 
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                console.log('📋 전체 행 수:', jsonData.length);
+                if (jsonData.length > 0) {
+                    console.log('헤더 행:', jsonData[0]);
+                }
+                if (jsonData.length > 1) {
+                    console.log('첫 데이터 행:', jsonData[1]);
+                }
 
                 if (!jsonData || jsonData.length === 0) {
                     throw new Error('Excel 파일에 데이터가 없습니다.');
@@ -1124,19 +1199,31 @@ async function handleFileUpload(type, file) {
                     ? file.name
                     : `data_ETF_${dateStr}.xlsx`;
 
-                // 헤더 제외하고 데이터만 저장 (최소 2행 이상 있어야 함)
+                // 헤더 제외하고 데이터만 저장
                 const dataRows = jsonData.length > 1 ? jsonData.slice(1) : [];
+
+                console.log('💾 저장할 데이터 행 수:', dataRows.length);
 
                 if (dataRows.length === 0) {
                     throw new Error('Excel 파일에 데이터 행이 없습니다. (헤더만 있음)');
                 }
 
+                // 데이터 검증: 각 행이 최소 3개의 컬럼을 가지고 있는지 확인
+                const validRows = dataRows.filter(row => Array.isArray(row) && row.length >= 3);
+                console.log('✅ 유효한 데이터 행 수:', validRows.length);
+
+                if (validRows.length === 0) {
+                    throw new Error('유효한 데이터 행이 없습니다. 각 행은 최소 3개의 컬럼(종목코드, 종목명, 종가)이 필요합니다.');
+                }
+
                 // 업로드된 파일 저장
                 uploadedFiles[savedFilename] = {
                     date: dateStr,
-                    data: dataRows
+                    data: validRows
                 };
                 saveUploadedFiles();
+
+                console.log('✅ 파일 저장 완료:', savedFilename);
 
                 // DB 파일 목록 새로고침
                 await loadDBFiles();
@@ -1151,14 +1238,20 @@ async function handleFileUpload(type, file) {
 
                 showNotification('✅ 파일이 업로드되고 저장되었습니다!', 'success');
             } catch (error) {
-                console.error('파일 처리 에러:', error);
+                console.error('❌ 파일 처리 에러:', error);
+                console.error('에러 스택:', error.stack);
                 showNotification('❌ 파일 처리 실패: ' + error.message, 'error');
             }
         };
 
+        reader.onerror = (error) => {
+            console.error('❌ 파일 읽기 에러:', error);
+            showNotification('❌ 파일 읽기 실패', 'error');
+        };
+
         reader.readAsArrayBuffer(file);
     } catch (error) {
-        console.error('업로드 에러:', error);
+        console.error('❌ 업로드 에러:', error);
         showNotification('❌ 업로드 실패: ' + error.message, 'error');
     }
 }
