@@ -472,6 +472,154 @@
                 width: 100%;
             }
         }
+
+        /* 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            overflow: auto;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .close:hover {
+            opacity: 0.7;
+        }
+
+        .modal-body {
+            padding: 30px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .instructions {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+            line-height: 1.8;
+        }
+
+        .paste-section {
+            margin-bottom: 25px;
+        }
+
+        .paste-section h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .paste-section textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        .paste-section textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .paste-section textarea::placeholder {
+            color: #adb5bd;
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-radius: 0 0 12px 12px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .modal-footer button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .cancel-btn {
+            background: #6c757d;
+            color: white;
+        }
+
+        .cancel-btn:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .import-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .import-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -491,6 +639,9 @@
                         📄 CSV 파일들
                         <input type="file" id="csv-upload" accept=".csv" multiple hidden onchange="handleCSVUpload(this.files)">
                     </label>
+                    <button class="upload-btn" onclick="showPasteModal()">
+                        📋 데이터 붙여넣기
+                    </button>
                     <label for="etf-upload" class="upload-btn">
                         💰 ETF 종가
                         <input type="file" id="etf-upload" accept=".xlsx,.csv" hidden onchange="handleFileUpload('etf', this.files[0])">
@@ -801,6 +952,43 @@
         <footer>
             <p>Wednesday Portfolio Manager v2.0</p>
         </footer>
+    </div>
+
+    <!-- 붙여넣기 모달 -->
+    <div id="paste-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 Excel 데이터 붙여넣기</h2>
+                <span class="close" onclick="closePasteModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="instructions">
+                    <strong>사용 방법:</strong><br>
+                    1. Excel에서 각 시트의 데이터를 복사합니다 (헤더 포함)<br>
+                    2. 아래 텍스트 영역에 붙여넣습니다<br>
+                    3. "데이터 가져오기" 버튼을 클릭합니다
+                </p>
+
+                <div class="paste-section">
+                    <h3>ROI 데이터</h3>
+                    <textarea id="roi-paste" placeholder="Excel에서 ROI 시트 데이터를 복사해서 여기에 붙여넣으세요...&#10;&#10;종목코드&#9;종목명&#9;초기투자금&#9;수량&#9;종가&#10;449170&#9;TIGER KOFR금리액티브(합성)&#9;5504005&#9;52&#9;110212"></textarea>
+                </div>
+
+                <div class="paste-section">
+                    <h3>Balance 데이터</h3>
+                    <textarea id="balance-paste" placeholder="Excel에서 Balance 시트 데이터를 복사해서 여기에 붙여넣으세요...&#10;&#10;날짜&#9;투자원금&#9;추가납입&#9;잔고&#9;수익률&#10;20251116&#9;16940870&#9;0&#9;18360634&#9;8.4%"></textarea>
+                </div>
+
+                <div class="paste-section">
+                    <h3>Portfolio 데이터</h3>
+                    <textarea id="portfolio-paste" placeholder="Excel에서 Portfolio 시트 데이터를 복사해서 여기에 붙여넣으세요...&#10;&#10;종목코드&#9;종목명&#9;자산군&#9;구분&#9;세팅비중&#10;449170&#9;TIGER KOFR금리액티브(합성)&#9;현금&#9;안전자산&#9;10"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closePasteModal()" class="cancel-btn">취소</button>
+                <button onclick="importPastedData()" class="import-btn">📥 데이터 가져오기</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1571,6 +1759,165 @@ function updatePortfolioFromROI() {
         const settingRatio = parseFloat(row['세팅비중'] || 0);
         const rebalancing = (settingRatio - currentRatio) / 100 * totalEval;
         row['녹색매수'] = rebalancing;
+    });
+}
+
+// 모달 표시
+function showPasteModal() {
+    document.getElementById('paste-modal').style.display = 'block';
+}
+
+// 모달 닫기
+function closePasteModal() {
+    document.getElementById('paste-modal').style.display = 'none';
+}
+
+// 붙여넣은 데이터 가져오기
+async function importPastedData() {
+    try {
+        console.log('📋 붙여넣기 데이터 가져오기 시작');
+
+        const roiText = document.getElementById('roi-paste').value.trim();
+        const balanceText = document.getElementById('balance-paste').value.trim();
+        const portfolioText = document.getElementById('portfolio-paste').value.trim();
+
+        let hasData = false;
+
+        // ROI 데이터 파싱
+        if (roiText) {
+            console.log('🔄 ROI 데이터 파싱 중...');
+            const roiRows = parseTSVData(roiText);
+            console.log('ROI 행 수:', roiRows.length);
+            if (roiRows.length > 0) {
+                console.log('ROI 첫 행:', roiRows[0]);
+                data.roi = roiRows.map((row, index) => {
+                    try {
+                        return {
+                            '종목코드': String(row[0] || ''),
+                            '종목명': row[1] || '',
+                            '초기투자금': parseNumber(row[2]),
+                            '수량': parseNumber(row[3]),
+                            '종가': parseNumber(row[4]),
+                            '평가금': 0,
+                            '수익률': 0
+                        };
+                    } catch (error) {
+                        console.error(`ROI 행 ${index} 파싱 실패:`, error, row);
+                        throw error;
+                    }
+                });
+                hasData = true;
+                console.log('✅ ROI 데이터 파싱 완료:', data.roi.length, '행');
+            }
+        }
+
+        // Balance 데이터 파싱
+        if (balanceText) {
+            console.log('🔄 Balance 데이터 파싱 중...');
+            const balanceRows = parseTSVData(balanceText);
+            console.log('Balance 행 수:', balanceRows.length);
+            if (balanceRows.length > 0) {
+                data.balance = balanceRows.map((row, index) => {
+                    try {
+                        return {
+                            '날짜': String(row[0] || ''),
+                            '투자원금': parseNumber(row[1]),
+                            '추가납입': parseNumber(row[2]),
+                            '잔고': parseNumber(row[3]),
+                            '수익률': row[4] || '0%'
+                        };
+                    } catch (error) {
+                        console.error(`Balance 행 ${index} 파싱 실패:`, error, row);
+                        throw error;
+                    }
+                });
+                hasData = true;
+                console.log('✅ Balance 데이터 파싱 완료:', data.balance.length, '행');
+            }
+        }
+
+        // Portfolio 데이터 파싱
+        if (portfolioText) {
+            console.log('🔄 Portfolio 데이터 파싱 중...');
+            const portfolioRows = parseTSVData(portfolioText);
+            console.log('Portfolio 행 수:', portfolioRows.length);
+            if (portfolioRows.length > 0) {
+                data.portfolio = portfolioRows.map((row, index) => {
+                    try {
+                        return {
+                            '종목코드': String(row[0] || ''),
+                            '종목명': row[1] || '',
+                            '자산군': row[2] || '',
+                            '구분': row[3] || '',
+                            '세팅비중': parseNumber(row[4]),
+                            '현재비중': 0,
+                            '녹색매수': 0
+                        };
+                    } catch (error) {
+                        console.error(`Portfolio 행 ${index} 파싱 실패:`, error, row);
+                        throw error;
+                    }
+                });
+                hasData = true;
+                console.log('✅ Portfolio 데이터 파싱 완료:', data.portfolio.length, '행');
+            }
+        }
+
+        if (!hasData) {
+            throw new Error('데이터가 입력되지 않았습니다. 최소 하나의 섹션에 데이터를 붙여넣어주세요.');
+        }
+
+        console.log('📊 최종 데이터:', {
+            roi: data.roi.length,
+            balance: data.balance.length,
+            portfolio: data.portfolio.length
+        });
+
+        // 테이블 렌더링
+        renderROITable();
+        renderBalanceTable();
+        updatePortfolioFromROI();
+        renderPortfolioTable();
+        drawBalanceChart();
+
+        // 데이터 저장
+        await saveData();
+
+        // 모달 닫기
+        closePasteModal();
+
+        // 입력 필드 초기화
+        document.getElementById('roi-paste').value = '';
+        document.getElementById('balance-paste').value = '';
+        document.getElementById('portfolio-paste').value = '';
+
+        showNotification('✅ 데이터를 성공적으로 가져왔습니다!', 'success');
+    } catch (error) {
+        console.error('❌ 데이터 가져오기 실패:', error);
+        console.error('에러 스택:', error.stack);
+        showNotification('❌ 데이터 가져오기 실패: ' + error.message, 'error');
+    }
+}
+
+// TSV 데이터 파싱 (탭으로 구분된 데이터)
+function parseTSVData(text) {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length === 0) return [];
+
+    // 첫 행이 헤더인지 확인 (숫자가 아닌 텍스트가 많으면 헤더로 간주)
+    const firstLine = lines[0].split('\t');
+    const hasHeader = firstLine.some(cell => {
+        const trimmed = cell.trim();
+        return trimmed && isNaN(parseFloat(trimmed.replace(/,/g, '')));
+    });
+
+    // 헤더가 있으면 제외
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    console.log(`파싱: 총 ${lines.length}행, 헤더 ${hasHeader ? '있음' : '없음'}, 데이터 ${dataLines.length}행`);
+
+    return dataLines.map(line => {
+        return line.split('\t').map(cell => cell.trim());
     });
 }
 
