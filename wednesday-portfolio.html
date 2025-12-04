@@ -2324,8 +2324,8 @@ function renderPortfolioTable() {
             <td><input type="text" value="${row['종목명'] || ''}" onchange="updatePortfolio(${index}, '종목명', this.value)"></td>
             <td><input type="text" value="${row['자산군'] || ''}" onchange="updatePortfolio(${index}, '자산군', this.value)"></td>
             <td><input type="text" value="${row['구분'] || ''}" onchange="updatePortfolio(${index}, '구분', this.value)"></td>
-            <td><input type="text" value="${settingRatio.toFixed(2)}%" onchange="updatePortfolio(${index}, '세팅비중', this.value.replace('%', ''))"></td>
-            <td>${currentRatio.toFixed(2)}%</td>
+            <td><input type="text" value="${settingRatio.toFixed(1)}%" onchange="updatePortfolio(${index}, '세팅비중', this.value.replace('%', ''))"></td>
+            <td>${currentRatio.toFixed(1)}%</td>
             <td class="${rebalancingClass}">${rebalancingText}</td>
             <td><button class="delete-btn" onclick="deleteRow('portfolio', ${index})">❌</button></td>
         `;
@@ -2336,11 +2336,11 @@ function renderPortfolioTable() {
     const totalCurrentEl = document.getElementById(`${prefix}total-current`);
 
     if (totalSettingEl) {
-        totalSettingEl.textContent = totalSetting.toFixed(2) + '%';
+        totalSettingEl.textContent = totalSetting.toFixed(1) + '%';
         totalSettingEl.className = Math.abs(totalSetting - 100) > 0.1 ? 'negative' : '';
     }
     if (totalCurrentEl) {
-        totalCurrentEl.textContent = totalCurrent.toFixed(2) + '%';
+        totalCurrentEl.textContent = totalCurrent.toFixed(1) + '%';
     }
 
     drawPortfolioCharts();
@@ -2716,7 +2716,7 @@ function drawPieChart(canvas, dataArray, colors, title) {
         ctx.textBaseline = 'middle';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
         ctx.shadowBlur = 4;
-        ctx.fillText(item.value.toFixed(2) + '%', labelX, labelY);
+        ctx.fillText(item.value.toFixed(1) + '%', labelX, labelY);
         ctx.shadowBlur = 0;
 
         currentAngle = endAngle;
