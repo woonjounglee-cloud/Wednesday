@@ -2428,6 +2428,9 @@ function deleteRow(table, index) {
         if (table === 'roi') renderROITable();
         else if (table === 'balance') renderBalanceTable();
         else if (table === 'portfolio') renderPortfolioTable();
+
+        // 삭제 후 자동 저장
+        saveData();
     }
 }
 
