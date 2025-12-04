@@ -2525,6 +2525,17 @@ function performRebalancing() {
 
         // 최종 결과 출력
         console.log('📊 최종 Portfolio 종목 개수:', data.portfolio.length);
+        console.log('📊 최종 Portfolio 데이터:', data.portfolio.map(r => ({
+            코드: r['종목코드'],
+            이름: r['종목명'],
+            자산군: r['자산군'],
+            구분: r['구분'],
+            세팅비중: r['세팅비중']
+        })));
+
+        // 자동 저장
+        await saveData();
+        console.log('💾 Portfolio 데이터 자동 저장 완료');
 
         // 알림 메시지
         let message = `✅ Rebalancing 완료!`;
@@ -2542,7 +2553,7 @@ function performRebalancing() {
         }
 
         showNotification(message, 'success');
-        console.log('✅ Rebalancing 완료');
+        console.log('✅ Rebalancing 완료 (총 ' + data.portfolio.length + '개 종목)');
     } catch (error) {
         console.error('❌ Rebalancing 실패:', error);
         console.error('에러 스택:', error.stack);
@@ -2571,17 +2582,6 @@ async function saveData() {
         showNotification('✅ 저장되었습니다!', 'success');
     } catch (error) {
         showNotification('❌ 저장 실패: ' + error.message, 'error');
-    }
-}
-
-// 리밸런싱 수행
-async function performRebalancing() {
-    try {
-        updatePortfolioFromROI();
-        renderPortfolioTable();
-        showNotification('✅ 리밸런싱 완료!', 'success');
-    } catch (error) {
-        showNotification('❌ 리밸런싱 실패: ' + error.message, 'error');
     }
 }
 
