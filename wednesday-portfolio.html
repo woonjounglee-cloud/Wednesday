@@ -2430,10 +2430,16 @@ function performRebalancing() {
             return;
         }
 
-        // ROI 테이블의 모든 종목코드 수집
+        // Portfolio 배열이 없으면 초기화
+        if (!data.portfolio) {
+            data.portfolio = [];
+            console.log('📝 Portfolio 배열 초기화');
+        }
+
+        // ROI 테이블의 모든 종목코드 수집 (문자열로 정규화)
         const roiCodes = data.roi
-            .map(row => row['종목코드'])
-            .filter(code => code && String(code).trim() !== '');
+            .map(row => String(row['종목코드'] || '').trim())
+            .filter(code => code !== '');
 
         if (roiCodes.length === 0) {
             showNotification('⚠️ ROI 테이블에 종목코드가 없습니다.', 'warning');
@@ -2441,27 +2447,40 @@ function performRebalancing() {
         }
 
         console.log('📋 ROI 종목 개수:', roiCodes.length);
+        console.log('📋 ROI 종목 목록:', roiCodes);
 
         // 기존 Portfolio의 종목코드 맵 생성
         const portfolioMap = {};
-        data.portfolio.forEach(row => {
+        const portfolioCodes = [];
+        data.portfolio.forEach((row, index) => {
             const code = String(row['종목코드'] || '').trim();
             if (code) {
-                portfolioMap[code] = row;
+                portfolioMap[code] = { row: row, index: index };
+                portfolioCodes.push(code);
             }
         });
 
+        console.log('📊 기존 Portfolio 종목 개수:', portfolioCodes.length);
+        console.log('📊 기존 Portfolio 종목 목록:', portfolioCodes);
+
         // ROI에 있는 모든 종목을 Portfolio에 추가/업데이트
         let addedCount = 0;
+        let updatedCount = 0;
+
         data.roi.forEach(roiRow => {
             const code = String(roiRow['종목코드'] || '').trim();
-            if (!code) return;
+            const name = roiRow['종목명'] || '';
+
+            if (!code) {
+                console.warn('⚠️ 종목코드 없음:', roiRow);
+                return;
+            }
 
             if (!portfolioMap[code]) {
                 // 신규 종목: Portfolio에 추가
                 const newRow = {
                     '종목코드': code,
-                    '종목명': roiRow['종목명'] || '',
+                    '종목명': name,
                     '자산군': '', // 사용자가 입력해야 함
                     '구분': '', // 사용자가 입력해야 함
                     '세팅비중': 0, // 사용자가 입력해야 함
@@ -2469,21 +2488,34 @@ function performRebalancing() {
                     '녹색매수': 0
                 };
                 data.portfolio.push(newRow);
-                portfolioMap[code] = newRow;
+                portfolioMap[code] = { row: newRow, index: data.portfolio.length - 1 };
                 addedCount++;
-                console.log(`➕ 신규 종목 추가: ${code} (${newRow['종목명']})`);
+                console.log(`➕ 신규 종목 추가: ${code} (${name})`);
+            } else {
+                // 기존 종목: 종목명 업데이트
+                portfolioMap[code].row['종목명'] = name;
+                updatedCount++;
+                console.log(`🔄 기존 종목 업데이트: ${code} (${name})`);
             }
         });
 
-        // ROI에 없는 Portfolio 종목은 현재비중 0으로 유지
+        console.log(`✅ 신규 추가: ${addedCount}개, 업데이트: ${updatedCount}개`);
+
+        // ROI에 없는 Portfolio 종목은 현재비중 0으로 설정
+        let removedCount = 0;
         data.portfolio.forEach(portfolioRow => {
             const code = String(portfolioRow['종목코드'] || '').trim();
             if (code && !roiCodes.includes(code)) {
                 portfolioRow['현재비중'] = 0;
                 portfolioRow['녹색매수'] = 0;
+                removedCount++;
                 console.log(`⚠️ ROI에 없는 종목: ${code} (현재비중 0으로 설정)`);
             }
         });
+
+        if (removedCount > 0) {
+            console.log(`⚠️ ROI에서 제거된 종목: ${removedCount}개`);
+        }
 
         // 현재비중 및 녹색매수 재계산
         updatePortfolioFromROI();
@@ -2491,15 +2523,29 @@ function performRebalancing() {
         // 테이블 렌더링
         renderPortfolioTable();
 
+        // 최종 결과 출력
+        console.log('📊 최종 Portfolio 종목 개수:', data.portfolio.length);
+
+        // 알림 메시지
+        let message = `✅ Rebalancing 완료!`;
         if (addedCount > 0) {
-            showNotification(`✅ Rebalancing 완료! ${addedCount}개 신규 종목 추가. 자산군, 구분, 세팅비중을 입력하세요.`, 'success');
-        } else {
-            showNotification('✅ Rebalancing 완료! 모든 종목의 현재비중이 업데이트되었습니다.', 'success');
+            message += ` ${addedCount}개 신규 종목 추가.`;
+        }
+        if (updatedCount > 0) {
+            message += ` ${updatedCount}개 종목 업데이트.`;
+        }
+        if (removedCount > 0) {
+            message += ` ${removedCount}개 종목 ROI에서 제거됨.`;
+        }
+        if (addedCount > 0) {
+            message += ` 자산군, 구분, 세팅비중을 입력하세요.`;
         }
 
+        showNotification(message, 'success');
         console.log('✅ Rebalancing 완료');
     } catch (error) {
         console.error('❌ Rebalancing 실패:', error);
+        console.error('에러 스택:', error.stack);
         showNotification('❌ Rebalancing 실패: ' + error.message, 'error');
     }
 }
