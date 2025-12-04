@@ -742,7 +742,7 @@
                     <h2>🎯 Portfolio (포트폴리오)</h2>
                     <div class="button-group">
                         <button onclick="performRebalancing()">🔄 Rebalancing</button>
-                        <button onclick="addRow('portfolio')">➕ 행 추가</button>
+                        <button onclick="saveData()">💾 저장</button>
                     </div>
                 </div>
 
@@ -871,7 +871,7 @@
                     <h2>🎯 Portfolio (포트폴리오)</h2>
                     <div class="button-group">
                         <button onclick="performRebalancing()">🔄 Rebalancing</button>
-                        <button onclick="addRow('portfolio')">➕ 행 추가</button>
+                        <button onclick="saveData()">💾 저장</button>
                     </div>
                 </div>
 
@@ -2324,8 +2324,8 @@ function renderPortfolioTable() {
             <td><input type="text" value="${row['종목명'] || ''}" onchange="updatePortfolio(${index}, '종목명', this.value)"></td>
             <td><input type="text" value="${row['자산군'] || ''}" onchange="updatePortfolio(${index}, '자산군', this.value)"></td>
             <td><input type="text" value="${row['구분'] || ''}" onchange="updatePortfolio(${index}, '구분', this.value)"></td>
-            <td><input type="text" value="${settingRatio.toFixed(2)}%" onchange="updatePortfolio(${index}, '세팅비중', this.value.replace('%', ''))"></td>
-            <td>${currentRatio.toFixed(2)}%</td>
+            <td><input type="text" value="${settingRatio.toFixed(1)}%" onchange="updatePortfolio(${index}, '세팅비중', this.value.replace('%', ''))"></td>
+            <td>${currentRatio.toFixed(1)}%</td>
             <td class="${rebalancingClass}">${rebalancingText}</td>
             <td><button class="delete-btn" onclick="deleteRow('portfolio', ${index})">❌</button></td>
         `;
@@ -2336,11 +2336,11 @@ function renderPortfolioTable() {
     const totalCurrentEl = document.getElementById(`${prefix}total-current`);
 
     if (totalSettingEl) {
-        totalSettingEl.textContent = totalSetting.toFixed(2) + '%';
+        totalSettingEl.textContent = totalSetting.toFixed(1) + '%';
         totalSettingEl.className = Math.abs(totalSetting - 100) > 0.1 ? 'negative' : '';
     }
     if (totalCurrentEl) {
-        totalCurrentEl.textContent = totalCurrent.toFixed(2) + '%';
+        totalCurrentEl.textContent = totalCurrent.toFixed(1) + '%';
     }
 
     drawPortfolioCharts();
@@ -2420,6 +2420,136 @@ function addRow(table) {
     }
 }
 
+// Rebalancing: ROI 테이블의 모든 종목을 Portfolio에 동기화
+function performRebalancing() {
+    try {
+        console.log('🔄 Rebalancing 시작');
+
+        if (!data.roi || data.roi.length === 0) {
+            showNotification('⚠️ ROI 테이블에 데이터가 없습니다.', 'warning');
+            return;
+        }
+
+        // Portfolio 배열이 없으면 초기화
+        if (!data.portfolio) {
+            data.portfolio = [];
+            console.log('📝 Portfolio 배열 초기화');
+        }
+
+        // ROI 테이블의 모든 종목코드 수집 (문자열로 정규화)
+        const roiCodes = data.roi
+            .map(row => String(row['종목코드'] || '').trim())
+            .filter(code => code !== '');
+
+        if (roiCodes.length === 0) {
+            showNotification('⚠️ ROI 테이블에 종목코드가 없습니다.', 'warning');
+            return;
+        }
+
+        console.log('📋 ROI 종목 개수:', roiCodes.length);
+        console.log('📋 ROI 종목 목록:', roiCodes);
+
+        // 기존 Portfolio의 종목코드 맵 생성
+        const portfolioMap = {};
+        const portfolioCodes = [];
+        data.portfolio.forEach((row, index) => {
+            const code = String(row['종목코드'] || '').trim();
+            if (code) {
+                portfolioMap[code] = { row: row, index: index };
+                portfolioCodes.push(code);
+            }
+        });
+
+        console.log('📊 기존 Portfolio 종목 개수:', portfolioCodes.length);
+        console.log('📊 기존 Portfolio 종목 목록:', portfolioCodes);
+
+        // ROI에 있는 모든 종목을 Portfolio에 추가/업데이트
+        let addedCount = 0;
+        let updatedCount = 0;
+
+        data.roi.forEach(roiRow => {
+            const code = String(roiRow['종목코드'] || '').trim();
+            const name = roiRow['종목명'] || '';
+
+            if (!code) {
+                console.warn('⚠️ 종목코드 없음:', roiRow);
+                return;
+            }
+
+            if (!portfolioMap[code]) {
+                // 신규 종목: Portfolio에 추가
+                const newRow = {
+                    '종목코드': code,
+                    '종목명': name,
+                    '자산군': '', // 사용자가 입력해야 함
+                    '구분': '', // 사용자가 입력해야 함
+                    '세팅비중': 0, // 사용자가 입력해야 함
+                    '현재비중': 0,
+                    '녹색매수': 0
+                };
+                data.portfolio.push(newRow);
+                portfolioMap[code] = { row: newRow, index: data.portfolio.length - 1 };
+                addedCount++;
+                console.log(`➕ 신규 종목 추가: ${code} (${name})`);
+            } else {
+                // 기존 종목: 종목명 업데이트
+                portfolioMap[code].row['종목명'] = name;
+                updatedCount++;
+                console.log(`🔄 기존 종목 업데이트: ${code} (${name})`);
+            }
+        });
+
+        console.log(`✅ 신규 추가: ${addedCount}개, 업데이트: ${updatedCount}개`);
+
+        // ROI에 없는 Portfolio 종목은 현재비중 0으로 설정
+        let removedCount = 0;
+        data.portfolio.forEach(portfolioRow => {
+            const code = String(portfolioRow['종목코드'] || '').trim();
+            if (code && !roiCodes.includes(code)) {
+                portfolioRow['현재비중'] = 0;
+                portfolioRow['녹색매수'] = 0;
+                removedCount++;
+                console.log(`⚠️ ROI에 없는 종목: ${code} (현재비중 0으로 설정)`);
+            }
+        });
+
+        if (removedCount > 0) {
+            console.log(`⚠️ ROI에서 제거된 종목: ${removedCount}개`);
+        }
+
+        // 현재비중 및 녹색매수 재계산
+        updatePortfolioFromROI();
+
+        // 테이블 렌더링
+        renderPortfolioTable();
+
+        // 최종 결과 출력
+        console.log('📊 최종 Portfolio 종목 개수:', data.portfolio.length);
+
+        // 알림 메시지
+        let message = `✅ Rebalancing 완료!`;
+        if (addedCount > 0) {
+            message += ` ${addedCount}개 신규 종목 추가.`;
+        }
+        if (updatedCount > 0) {
+            message += ` ${updatedCount}개 종목 업데이트.`;
+        }
+        if (removedCount > 0) {
+            message += ` ${removedCount}개 종목 ROI에서 제거됨.`;
+        }
+        if (addedCount > 0) {
+            message += ` 자산군, 구분, 세팅비중을 입력하세요.`;
+        }
+
+        showNotification(message, 'success');
+        console.log('✅ Rebalancing 완료');
+    } catch (error) {
+        console.error('❌ Rebalancing 실패:', error);
+        console.error('에러 스택:', error.stack);
+        showNotification('❌ Rebalancing 실패: ' + error.message, 'error');
+    }
+}
+
 // 행 삭제
 function deleteRow(table, index) {
     if (confirm('정말 삭제하시겠습니까?')) {
@@ -2428,6 +2558,9 @@ function deleteRow(table, index) {
         if (table === 'roi') renderROITable();
         else if (table === 'balance') renderBalanceTable();
         else if (table === 'portfolio') renderPortfolioTable();
+
+        // 삭제 후 자동 저장
+        saveData();
     }
 }
 
@@ -2716,7 +2849,7 @@ function drawPieChart(canvas, dataArray, colors, title) {
         ctx.textBaseline = 'middle';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
         ctx.shadowBlur = 4;
-        ctx.fillText(item.value.toFixed(2) + '%', labelX, labelY);
+        ctx.fillText(item.value.toFixed(1) + '%', labelX, labelY);
         ctx.shadowBlur = 0;
 
         currentAngle = endAngle;
