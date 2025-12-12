@@ -1525,32 +1525,61 @@ function initTabs() {
 
 // 탭 전환
 async function switchTab(tabName, dbName) {
-    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    try {
+        console.log(`🔄 탭 전환: ${tabName} (DB: ${dbName})`);
 
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-    document.getElementById(`${tabName}-tab`).classList.add('active');
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-    if (dbName) {
-        currentDB = dbName;
+        const targetButton = document.querySelector(`[data-tab="${tabName}"]`);
+        const targetTab = document.getElementById(`${tabName}-tab`);
 
-        // LocalStorage에 데이터가 있으면 그것을 사용, 없으면 Excel 파일에서 로드
-        const stored = localStorage.getItem(`wednesday_${currentDB}`);
-        if (stored) {
-            await loadData(false);
-        } else {
-            try {
-                const excelFile = getExcelFileForDB(currentDB);
-                await loadFromExcel(excelFile);
-            } catch (error) {
-                console.log('Excel 파일 로드 실패, 빈 데이터로 시작:', error);
-                await loadData(false);
-            }
+        if (!targetButton) {
+            console.error(`❌ 탭 버튼을 찾을 수 없습니다: ${tabName}`);
+            return;
+        }
+        if (!targetTab) {
+            console.error(`❌ 탭 콘텐츠를 찾을 수 없습니다: ${tabName}-tab`);
+            return;
         }
 
-        loadDBFiles();
-        drawBalanceChart();
-        drawPortfolioCharts();
+        targetButton.classList.add('active');
+        targetTab.classList.add('active');
+
+        console.log(`✅ 탭 활성화 완료: ${tabName}`);
+
+        if (dbName) {
+            currentDB = dbName;
+            console.log(`📂 DB 변경: ${currentDB}`);
+
+            // LocalStorage에 데이터가 있으면 그것을 사용, 없으면 Excel 파일에서 로드
+            const stored = localStorage.getItem(`wednesday_${currentDB}`);
+            if (stored) {
+                console.log(`💾 LocalStorage에서 데이터 로드: wednesday_${currentDB}`);
+                await loadData(false);
+            } else {
+                console.log(`📁 LocalStorage에 데이터 없음, Excel 파일 로드 시도`);
+                try {
+                    const excelFile = getExcelFileForDB(currentDB);
+                    await loadFromExcel(excelFile);
+                } catch (error) {
+                    console.log('Excel 파일 로드 실패, 빈 데이터로 시작:', error);
+                    await loadData(false);
+                }
+            }
+
+            // 종가 DB 선택 드롭다운 새로고침
+            refreshPriceDBSelector();
+
+            loadDBFiles();
+            drawBalanceChart();
+            drawPortfolioCharts();
+
+            console.log(`✅ 탭 전환 완료`);
+        }
+    } catch (error) {
+        console.error('❌ 탭 전환 실패:', error);
+        console.error('에러 스택:', error.stack);
     }
 }
 
@@ -2421,7 +2450,7 @@ function addRow(table) {
 }
 
 // Rebalancing: ROI 테이블의 모든 종목을 Portfolio에 동기화
-function performRebalancing() {
+async function performRebalancing() {
     try {
         console.log('🔄 Rebalancing 시작');
 
@@ -2525,6 +2554,17 @@ function performRebalancing() {
 
         // 최종 결과 출력
         console.log('📊 최종 Portfolio 종목 개수:', data.portfolio.length);
+        console.log('📊 최종 Portfolio 데이터:', data.portfolio.map(r => ({
+            코드: r['종목코드'],
+            이름: r['종목명'],
+            자산군: r['자산군'],
+            구분: r['구분'],
+            세팅비중: r['세팅비중']
+        })));
+
+        // 자동 저장
+        await saveData();
+        console.log('💾 Portfolio 데이터 자동 저장 완료');
 
         // 알림 메시지
         let message = `✅ Rebalancing 완료!`;
@@ -2542,7 +2582,7 @@ function performRebalancing() {
         }
 
         showNotification(message, 'success');
-        console.log('✅ Rebalancing 완료');
+        console.log('✅ Rebalancing 완료 (총 ' + data.portfolio.length + '개 종목)');
     } catch (error) {
         console.error('❌ Rebalancing 실패:', error);
         console.error('에러 스택:', error.stack);
@@ -2571,17 +2611,6 @@ async function saveData() {
         showNotification('✅ 저장되었습니다!', 'success');
     } catch (error) {
         showNotification('❌ 저장 실패: ' + error.message, 'error');
-    }
-}
-
-// 리밸런싱 수행
-async function performRebalancing() {
-    try {
-        updatePortfolioFromROI();
-        renderPortfolioTable();
-        showNotification('✅ 리밸런싱 완료!', 'success');
-    } catch (error) {
-        showNotification('❌ 리밸런싱 실패: ' + error.message, 'error');
     }
 }
 
